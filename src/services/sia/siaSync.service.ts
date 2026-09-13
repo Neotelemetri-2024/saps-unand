@@ -267,19 +267,27 @@ export async function syncProdi(): Promise<SyncResult> {
         }
 
         // Cek apakah sudah ada di DB (unique: fakultasId + nama)
+        let targetProdiId: number;
         const existing = await prisma.programStudi.findFirst({
           where: { fakultasId, nama: prodiNama },
         });
 
         if (existing) {
-          if (prodiKode) siaProdiKodeToSapsId.set(prodiKode, existing.id);
+          targetProdiId = existing.id;
           result.skipped++;
         } else {
           const created = await prisma.programStudi.create({
             data: { nama: prodiNama, fakultasId },
           });
-          if (prodiKode) siaProdiKodeToSapsId.set(prodiKode, created.id);
+          targetProdiId = created.id;
           result.created++;
+        }
+
+        // Simpan SEMUA variasi kode prodi ke map agar bisa dicocokkan dari berbagai field
+        const codes = [prodi.prodiKode, prodi.prodiKodeDikti, prodi.prodiId].filter(Boolean);
+        for (const c of codes) {
+          const trimmed = String(c).trim();
+          if (trimmed) siaProdiKodeToSapsId.set(trimmed, targetProdiId);
         }
       } catch (err: any) {
         result.errors.push(`Prodi "${prodi.prodiNamaResmi || prodi.prodiNama}": ${err.message}`);
@@ -291,6 +299,133 @@ export async function syncProdi(): Promise<SyncResult> {
 
   console.log(`[SIA Sync] ProgramStudi — created: ${result.created}, skipped: ${result.skipped}, errors: ${result.errors.length}`);
   return result;
+}
+
+// ─── Helpers: NIDN Sanitization & Dosen PA Upsert ────────────────────────────
+
+/**
+ * Membersihkan NIDN dari nilai dummy/placeholder seperti "0", "-", "null", spasi kosong, dll.
+ * Mengembalikan string NIDN valid atau null.
+ */
+function cleanNidn(rawNidn?: string | null): string | null {
+  if (!rawNidn) return null;
+  const trimmed = rawNidn.trim();
+  if (
+    !trimmed ||
+    trimmed === '-' ||
+    trimmed === '0' ||
+    /^0+$/.test(trimmed) ||
+    trimmed.toLowerCase() === 'null' ||
+    trimmed.toLowerCase() === 'undefined' ||
+    trimmed.toLowerCase() === 'tidak ada' ||
+    trimmed.toLowerCase() === 'none'
+  ) {
+    return null;
+  }
+  return trimmed;
+}
+
+/**
+ * Menyimpan / memperbarui data Dosen PA dengan proteksi collision unique constraint NIDN.
+ * Jika NIDN bentrok dengan data lain di database, otomatis fallback ke nidn = null agar profil Dosen tetap tercipta.
+ */
+async function upsertDosenRecord(userId: bigint, targetNidn: string | null, fakultasId: number | null): Promise<void> {
+  const existingDosen = await prisma.dosen.findUnique({ where: { userId } });
+
+  // 1. Cek apakah NIDN sudah dipakai oleh user Dosen lain di database
+  let safeNidn = targetNidn;
+  if (safeNidn) {
+    const duplicate = await prisma.dosen.findFirst({
+      where: {
+        nidn: safeNidn,
+        NOT: { userId },
+      },
+      select: { userId: true },
+    });
+    if (duplicate) {
+      safeNidn = null;
+    }
+  }
+
+  // 2. Eksekusi create atau update dengan fallback retry jika terjadi collision
+  try {
+    if (!existingDosen) {
+      await prisma.dosen.create({
+        data: { userId, nidn: safeNidn, fakultasId },
+      });
+    } else if (existingDosen.fakultasId !== fakultasId || existingDosen.nidn !== safeNidn) {
+      await prisma.dosen.update({
+        where: { userId },
+        data: { fakultasId, nidn: safeNidn },
+      });
+    }
+  } catch (err: any) {
+    if (err.code === 'P2002' || err.message?.includes('dosen_nidn_key') || err.message?.includes('Unique constraint')) {
+      // Retry dengan nidn: null agar Dosen tetap tercipta tanpa melanggar unique constraint
+      if (!existingDosen) {
+        await prisma.dosen.create({
+          data: { userId, nidn: null, fakultasId },
+        });
+      } else {
+        await prisma.dosen.update({
+          where: { userId },
+          data: { fakultasId, nidn: null },
+        });
+      }
+    } else {
+      throw err;
+    }
+  }
+}
+
+// ─── Helpers: Prodi Name Normalization & Keyword Matcher ─────────────────────
+
+/**
+ * Normalisasi string nama program studi untuk pencocokan fleksibel antara SIA dan SAPS.
+ * Menangani variasi jenjang (D-III, D3, Diploma 3, S1, dll.) dan membuang tanda baca.
+ */
+function normalizeProdiString(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\bd[-\s]?iii\b|\bdiploma[-\s]?3\b|\bdiploma[-\s]?iii\b|\bd\s*3\b/gi, 'd3')
+    .replace(/\bd[-\s]?iv\b|\bdiploma[-\s]?4\b|\bdiploma[-\s]?iv\b|\bd\s*4\b/gi, 'd4')
+    .replace(/\bd[-\s]?ii\b|\bdiploma[-\s]?2\b|\bdiploma[-\s]?ii\b|\bd\s*2\b/gi, 'd2')
+    .replace(/\bd[-\s]?i\b|\bdiploma[-\s]?1\b|\bdiploma[-\s]?i\b|\bd\s*1\b/gi, 'd1')
+    .replace(/\bs[-\s]?1\b|\bstrata[-\s]?1\b|\bsarjana\b/gi, 's1')
+    .replace(/\bs[-\s]?2\b|\bmagister\b/gi, 's2')
+    .replace(/\bs[-\s]?3\b|\bdoktor\b/gi, 's3')
+    .replace(/\bsp[-\s]?1\b|\bspesialis[-\s]?1\b/gi, 'sp1')
+    .replace(/\bprofesi\b/gi, 'profesi')
+    .replace(/[-_/\\(),.]/g, ' ')
+    .replace(/\b(program|studi|jurusan)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Mencari program studi berdasarkan kecocokan kata kunci inti (misal: "perbankan" dan "keuangan")
+ */
+function findProdiByKeywords(inputNama: string, prodiList: { id: number; nama: string }[]): number | null {
+  const normInput = normalizeProdiString(inputNama);
+  const inputWords = normInput.split(' ').filter(w => w.length > 2 && w !== 'dan');
+  if (inputWords.length === 0) return null;
+
+  let bestMatchId: number | null = null;
+  let maxMatchedWords = 0;
+
+  for (const p of prodiList) {
+    const normP = normalizeProdiString(p.nama);
+    const pWords = normP.split(' ').filter(w => w.length > 2 && w !== 'dan');
+
+    const matched = inputWords.filter(w => pWords.includes(w) || normP.includes(w)).length;
+    const threshold = Math.min(inputWords.length, 2);
+    if (matched >= threshold && matched > maxMatchedWords) {
+      maxMatchedWords = matched;
+      bestMatchId = p.id;
+    }
+  }
+
+  return bestMatchId;
 }
 
 // =============================================================================
@@ -339,7 +474,7 @@ export async function syncDosenPA(): Promise<SyncResult> {
         batch.map(async ([nip, dosen]) => {
           try {
             const email = `${nip}@dosen.unand.ac.id`;
-            const nidn = (dosen.dsnNidn || nip).trim();
+            const nidn = cleanNidn(dosen.dsnNidn);
 
             // Susun nama lengkap dengan gelar depan dan belakang jika tersedia
             const gelarDepan = (dosen.pegGelarDepan || '').trim();
@@ -377,18 +512,7 @@ export async function syncDosenPA(): Promise<SyncResult> {
                 result.skipped++;
               }
 
-              const existingDosen = await prisma.dosen.findUnique({ where: { userId: existingUser.id } });
-              if (!existingDosen) {
-                await prisma.dosen.create({
-                  data: { userId: existingUser.id, nidn, fakultasId },
-                });
-              } else if (existingDosen.fakultasId !== fakultasId || existingDosen.nidn !== nidn) {
-                await prisma.dosen.update({
-                  where: { userId: existingUser.id },
-                  data: { fakultasId, nidn },
-                });
-              }
-
+              await upsertDosenRecord(existingUser.id, nidn, fakultasId);
               siaDosenNipToSapsUserId.set(nip, existingUser.id);
             } else {
               const passwordHash = await hashPassword(`Unand#${nip}`);
@@ -401,10 +525,7 @@ export async function syncDosenPA(): Promise<SyncResult> {
                 },
               });
 
-              await prisma.dosen.create({
-                data: { userId: newUser.id, nidn, fakultasId },
-              });
-
+              await upsertDosenRecord(newUser.id, nidn, fakultasId);
               siaDosenNipToSapsUserId.set(nip, newUser.id);
               result.created++;
             }
@@ -448,15 +569,17 @@ export async function syncMahasiswa(options?: SyncMahasiswaOptions): Promise<Syn
         if (EXCLUDED_MHS_STATUS.some(s => rawStatus === s || rawStatus.includes(s))) {
           return false;
         }
-        // Pastikan termasuk dalam status yang diizinkan (Aktif / BSS / Cuti)
-        if (!ALLOWED_MHS_STATUS.some(s => rawStatus === s || rawStatus.includes(s))) {
-          return false;
+
+        // Jika status ada dan cocok dengan status yang diizinkan -> izinkan!
+        if (ALLOWED_MHS_STATUS.some(s => rawStatus === s || rawStatus.includes(s))) {
+          // Lolos cek status, lanjut cek angkatan di bawah
         }
       }
 
-      // Filter angkatan HANYA jika diatur secara eksplisit oleh pengguna
+      // Cek angkatan jika ada batasan minimal
       if (minAngkatan) {
-        const angkatan = parseInt(m.mhsAngkatan || '', 10) || null;
+        const rawAngkatan = (m.mhsAngkatan || '').toString().trim();
+        const angkatan = parseInt(rawAngkatan, 10);
         if (angkatan && angkatan < minAngkatan) {
           return false;
         }
@@ -482,22 +605,35 @@ export async function syncMahasiswa(options?: SyncMahasiswaOptions): Promise<Syn
       await syncProdi();
     }
 
-    // Preload semua program studi ke memory untuk lookup super cepat tanpa query DB per mahasiswa
-    const allProdiList = await prisma.programStudi.findMany({ select: { id: true, nama: true } });
+    // Preload semua program studi ke memory untuk lookup fleksibel
+    const allProdiList = await prisma.programStudi.findMany({ select: { id: true, nama: true, fakultasId: true } });
     const prodiByNameLower = new Map<string, number>();
+    const prodiByNormalized = new Map<string, number>();
     for (const p of allProdiList) {
       prodiByNameLower.set(p.nama.trim().toLowerCase(), p.id);
+      prodiByNormalized.set(normalizeProdiString(p.nama), p.id);
     }
 
-    // Preload Dosen PA jika map masih kosong
+    // Preload semua fakultas untuk fallback auto-create prodi
+    const allFakultas = await prisma.fakultas.findMany({ select: { id: true, nama: true } });
+    const fakByNameLower = new Map<string, number>();
+    for (const f of allFakultas) {
+      fakByNameLower.set(f.nama.trim().toLowerCase(), f.id);
+    }
+
+    // Preload Dosen PA dari tabel DOSEN (bukan hanya tabel User) agar menjamin Foreign Key valid
     if (siaDosenNipToSapsUserId.size === 0) {
-      const allDosenUsers = await prisma.user.findMany({
-        where: { peran: 'dosen' },
-        select: { id: true, email: true },
+      const allDosenList = await prisma.dosen.findMany({
+        select: {
+          userId: true,
+          user: { select: { email: true } },
+        },
       });
-      for (const u of allDosenUsers) {
-        const nip = u.email.split('@')[0];
-        if (nip) siaDosenNipToSapsUserId.set(nip, u.id);
+      for (const d of allDosenList) {
+        if (d.user?.email) {
+          const nip = d.user.email.split('@')[0];
+          if (nip) siaDosenNipToSapsUserId.set(nip, d.userId);
+        }
       }
     }
 
@@ -525,8 +661,8 @@ export async function syncMahasiswa(options?: SyncMahasiswaOptions): Promise<Syn
         }
       }
 
-      // 2. Jika mahasiswa angkatannya lebih tua dari kurikulum paling awal (misal angkatan 2020-2023 sedangkan kurikulum paling awal 2024):
-      // Wajib mengikuti kurikulum paling awal / terdekat (yaitu Kurikulum 2024, BUKAN 2026!)
+      // 2. Jika mahasiswa angkatannya lebih tua dari kurikulum paling awal:
+      // Wajib mengikuti kurikulum paling awal / terdekat
       if (kurikulumDenganAngkatanAsc.length > 0) {
         return kurikulumDenganAngkatanAsc[0].id;
       }
@@ -564,13 +700,69 @@ export async function syncMahasiswa(options?: SyncMahasiswaOptions): Promise<Syn
             let prodiId = siaProdiKodeToSapsId.get(prodiKode);
             if (!prodiId && prodiNama) {
               const lowerName = prodiNama.toLowerCase();
+              const normName = normalizeProdiString(prodiNama);
+
+              // 1. Exact lowercase
               prodiId = prodiByNameLower.get(lowerName);
+
+              // 2. Normalized match (DIII <-> D3, etc.)
+              if (!prodiId) {
+                prodiId = prodiByNormalized.get(normName);
+              }
+
+              // 3. Substring includes
               if (!prodiId) {
                 for (const [pName, pId] of prodiByNameLower.entries()) {
                   if (pName.includes(lowerName) || lowerName.includes(pName)) {
                     prodiId = pId;
                     break;
                   }
+                }
+              }
+
+              // 4. Normalized substring includes
+              if (!prodiId) {
+                for (const [pNorm, pId] of prodiByNormalized.entries()) {
+                  if (pNorm.includes(normName) || normName.includes(pNorm)) {
+                    prodiId = pId;
+                    break;
+                  }
+                }
+              }
+
+              // 5. Keyword matching (misal: "perbankan" & "keuangan")
+              if (!prodiId) {
+                prodiId = findProdiByKeywords(prodiNama, allProdiList) || undefined;
+              }
+
+              // 6. Fallback: Auto-create prodi jika dari SIA belum ada di SAPS agar mahasiswa tidak hilang
+              if (!prodiId) {
+                let fakultasId = siaFakIdToSapsId.get(mhs.fakId);
+                if (!fakultasId && mhs.fakNamaResmi) {
+                  const cleanFak = mhs.fakNamaResmi.replace(/fakultas\s*/i, '').trim().toLowerCase();
+                  for (const [fName, fId] of fakByNameLower.entries()) {
+                    if (fName.includes(cleanFak) || cleanFak.includes(fName)) {
+                      fakultasId = fId;
+                      break;
+                    }
+                  }
+                }
+                if (!fakultasId) {
+                  fakultasId = allFakultas[0]?.id || 1;
+                }
+
+                try {
+                  const created = await prisma.programStudi.create({
+                    data: { nama: prodiNama, fakultasId },
+                  });
+                  prodiId = created.id;
+                  allProdiList.push({ id: created.id, nama: prodiNama, fakultasId });
+                  prodiByNameLower.set(lowerName, created.id);
+                  prodiByNormalized.set(normName, created.id);
+                  if (prodiKode) siaProdiKodeToSapsId.set(prodiKode, created.id);
+                } catch (createProdiErr) {
+                  const retry = await prisma.programStudi.findFirst({ where: { nama: prodiNama } });
+                  if (retry) prodiId = retry.id;
                 }
               }
             }
@@ -594,12 +786,14 @@ export async function syncMahasiswa(options?: SyncMahasiswaOptions): Promise<Syn
               if (siaDosenNipToSapsUserId.has(dosenPaNip)) {
                 dosenPaId = siaDosenNipToSapsUserId.get(dosenPaNip)!;
               } else {
-                const dosenUser = await prisma.user.findUnique({
-                  where: { email: `${dosenPaNip}@dosen.unand.ac.id` },
+                // Cari langsung ke tabel Dosen (menjamin Foreign Key valid)
+                const dosenRecord = await prisma.dosen.findFirst({
+                  where: { user: { email: `${dosenPaNip}@dosen.unand.ac.id` } },
+                  select: { userId: true },
                 });
-                if (dosenUser) {
-                  dosenPaId = dosenUser.id;
-                  siaDosenNipToSapsUserId.set(dosenPaNip, dosenUser.id);
+                if (dosenRecord) {
+                  dosenPaId = dosenRecord.userId;
+                  siaDosenNipToSapsUserId.set(dosenPaNip, dosenRecord.userId);
                 }
               }
             }
@@ -616,14 +810,35 @@ export async function syncMahasiswa(options?: SyncMahasiswaOptions): Promise<Syn
 
               const existingMhs = await prisma.mahasiswa.findUnique({ where: { userId: existingUser.id } });
               if (!existingMhs) {
-                await prisma.mahasiswa.create({
-                  data: { userId: existingUser.id, nim, prodiId, angkatan, dosenPaId, kurikulumId },
-                });
+                try {
+                  await prisma.mahasiswa.create({
+                    data: { userId: existingUser.id, nim, prodiId, angkatan, dosenPaId, kurikulumId },
+                  });
+                } catch (mhsCreateErr: any) {
+                  if (mhsCreateErr.code === 'P2003' && mhsCreateErr.message?.includes('dosen_pa_id')) {
+                    await prisma.mahasiswa.create({
+                      data: { userId: existingUser.id, nim, prodiId, angkatan, dosenPaId: null, kurikulumId },
+                    });
+                  } else {
+                    throw mhsCreateErr;
+                  }
+                }
               } else {
-                await prisma.mahasiswa.update({
-                  where: { userId: existingUser.id },
-                  data: { prodiId, angkatan, dosenPaId, kurikulumId },
-                });
+                try {
+                  await prisma.mahasiswa.update({
+                    where: { userId: existingUser.id },
+                    data: { prodiId, angkatan, dosenPaId, kurikulumId },
+                  });
+                } catch (mhsUpdateErr: any) {
+                  if (mhsUpdateErr.code === 'P2003' && mhsUpdateErr.message?.includes('dosen_pa_id')) {
+                    await prisma.mahasiswa.update({
+                      where: { userId: existingUser.id },
+                      data: { prodiId, angkatan, dosenPaId: null, kurikulumId },
+                    });
+                  } else {
+                    throw mhsUpdateErr;
+                  }
+                }
               }
 
               result.updated++;
@@ -638,9 +853,19 @@ export async function syncMahasiswa(options?: SyncMahasiswaOptions): Promise<Syn
                 },
               });
 
-              await prisma.mahasiswa.create({
-                data: { userId: newUser.id, nim, prodiId, angkatan, dosenPaId, kurikulumId },
-              });
+              try {
+                await prisma.mahasiswa.create({
+                  data: { userId: newUser.id, nim, prodiId, angkatan, dosenPaId, kurikulumId },
+                });
+              } catch (mhsCreateErr: any) {
+                if (mhsCreateErr.code === 'P2003' && mhsCreateErr.message?.includes('dosen_pa_id')) {
+                  await prisma.mahasiswa.create({
+                    data: { userId: newUser.id, nim, prodiId, angkatan, dosenPaId: null, kurikulumId },
+                  });
+                } else {
+                  throw mhsCreateErr;
+                }
+              }
 
               result.created++;
             }
