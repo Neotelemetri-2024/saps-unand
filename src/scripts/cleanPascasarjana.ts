@@ -75,16 +75,18 @@ async function main() {
 
   console.log(`⏳ Menghapus relasi & data ${userIdsToDelete.length} mahasiswa Pascasarjana...`);
 
-  // A. Hapus relasi data
-  await prisma.partisipasi.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } });
-  await prisma.perolehanPoin.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } });
-  await prisma.saranPA.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } });
-  await prisma.cvGenerated.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } });
-  if ((prisma as any).sertifikatPenerbitan) {
-    await (prisma as any).sertifikatPenerbitan.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } });
-  }
-  await prisma.notifikasi.deleteMany({ where: { userId: { in: userIdsToDelete } } });
-  await prisma.auditLog.deleteMany({ where: { aktorId: { in: userIdsToDelete } } });
+  // A. Hapus relasi data (dijalankan aman dengan try-catch jika tabel belum termigrasi di database)
+  try { await prisma.partisipasi.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } }); } catch (_) {}
+  try { await prisma.perolehanPoin.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } }); } catch (_) {}
+  try { await prisma.saranPA.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } }); } catch (_) {}
+  try { await prisma.cvGenerated.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } }); } catch (_) {}
+  try {
+    if ((prisma as any).sertifikatPenerbitan) {
+      await (prisma as any).sertifikatPenerbitan.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } });
+    }
+  } catch (_) {}
+  try { await prisma.notifikasi.deleteMany({ where: { userId: { in: userIdsToDelete } } }); } catch (_) {}
+  try { await prisma.auditLog.deleteMany({ where: { aktorId: { in: userIdsToDelete } } }); } catch (_) {}
 
   // B. Hapus profil mahasiswa
   const delMhs = await prisma.mahasiswa.deleteMany({ where: { userId: { in: userIdsToDelete } } });

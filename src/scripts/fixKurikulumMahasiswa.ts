@@ -108,6 +108,18 @@ async function main() {
     );
   }
 
+  // Pastikan seluruh akun user mahasiswa berstatus aktif (aktif = true)
+  const userAktifRes = await prisma.user.updateMany({
+    where: {
+      peran: 'mahasiswa',
+      aktif: false,
+    },
+    data: { aktif: true },
+  });
+  if (userAktifRes.count > 0) {
+    console.log(`⚡ Mengaktifkan ${userAktifRes.count} akun user mahasiswa yang sebelumnya nonaktif.`);
+  }
+
   // 4. Ringkasan
   console.log(`\n====================================================`);
   console.log(`🎉 PERBAIKAN KURIKULUM SELESAI!`);

@@ -19,7 +19,8 @@
     "sync:mbkm:dev": "tsx src/scripts/syncMbkm.ts",
     "clean:sia": "node dist/scripts/cleanSiaData.js",
     "clean:pascasarjana": "node dist/scripts/cleanPascasarjana.js",
-    "fix:kurikulum": "node dist/scripts/fixKurikulumMahasiswa.js"
+    "fix:kurikulum": "node dist/scripts/fixKurikulumMahasiswa.js",
+    "check:sia": "node dist/scripts/checkSiaAngkatan.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
