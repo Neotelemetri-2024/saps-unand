@@ -1,6 +1,8 @@
 /** Base URL backend — set di .env: VITE_API_BASE=... */
 const API_BASE = (import.meta.env.VITE_API_BASE || 'https://api.saps.neotelemetri.id').replace(/\/$/, '')
 
+const DEFAULT_TIMEOUT_MS = 15000 // 15 detik batas waktu koneksi
+
 function getToken() {
   try {
     const raw = localStorage.getItem('saps_current_user')
@@ -15,12 +17,31 @@ function buildHeaders(extra = {}) {
   const token = getToken()
   return {
     'Content-Type': 'application/json',
-    // Lewati halaman peringatan interstisial ngrok (free tier) — tanpa header ini,
-    // ngrok balas HTML warning (200 OK, tanpa header CORS) alih-alih meneruskan ke backend,
-    // yang browser laporkan sebagai error CORS padahal request belum sampai ke server.
+    // Lewati halaman peringatan interstisial ngrok (free tier)
     'ngrok-skip-browser-warning': 'true',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...extra,
+  }
+}
+
+function createTimeoutSignal(timeoutMs = DEFAULT_TIMEOUT_MS) {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return AbortSignal.timeout(timeoutMs)
+  }
+  const controller = new AbortController()
+  setTimeout(() => controller.abort(), timeoutMs)
+  return controller.signal
+}
+
+async function fetchWithTimeout(url, options = {}) {
+  const signal = options.signal || createTimeoutSignal()
+  try {
+    return await fetch(url, { ...options, signal })
+  } catch (err) {
+    if (err.name === 'AbortError' || err.name === 'TimeoutError' || signal.aborted) {
+      throw new Error('Koneksi ke server timeout (melebihi 15 detik). Silakan periksa jaringan Anda atau coba sesaat lagi.')
+    }
+    throw err
   }
 }
 
@@ -84,12 +105,12 @@ function buildUrl(path, params) {
 }
 
 export async function get(path, params) {
-  const res = await fetch(buildUrl(path, params), { headers: buildHeaders() })
+  const res = await fetchWithTimeout(buildUrl(path, params), { headers: buildHeaders() })
   return handleResponse(res)
 }
 
 export async function post(path, data) {
-  const res = await fetch(buildUrl(path), {
+  const res = await fetchWithTimeout(buildUrl(path), {
     method: 'POST',
     headers: buildHeaders(),
     body: JSON.stringify(data ?? {}),
@@ -98,7 +119,7 @@ export async function post(path, data) {
 }
 
 export async function put(path, data) {
-  const res = await fetch(buildUrl(path), {
+  const res = await fetchWithTimeout(buildUrl(path), {
     method: 'PUT',
     headers: buildHeaders(),
     body: JSON.stringify(data ?? {}),
@@ -107,7 +128,7 @@ export async function put(path, data) {
 }
 
 export async function del(path) {
-  const res = await fetch(buildUrl(path), {
+  const res = await fetchWithTimeout(buildUrl(path), {
     method: 'DELETE',
     headers: buildHeaders(),
   })
@@ -120,7 +141,7 @@ export async function postFormData(path, formData) {
     'ngrok-skip-browser-warning': 'true',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   }
-  const res = await fetch(buildUrl(path), {
+  const res = await fetchWithTimeout(buildUrl(path), {
     method: 'POST',
     headers,
     body: formData,

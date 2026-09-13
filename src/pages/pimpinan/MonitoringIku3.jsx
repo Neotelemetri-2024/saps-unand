@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, Fragment } from 'react'
-import { Search, Settings2, Scale, Info, Download } from 'lucide-react'
+import { Search, Settings2, Scale, Info, Download, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
 import StatCard from '../../components/dashboard/StatCard'
@@ -22,6 +22,8 @@ import {
   saveIku3Target,
   getIku3Rules,
   updateIku3Rule,
+  createIku3Rule,
+  deleteIku3Rule,
   downloadExcelIku3,
 } from '../../services/iku3Service'
 import { batalBtnClass } from '../../components/ui/buttonStyles'
@@ -313,6 +315,19 @@ function RulesModal({ isOpen, onClose, onSaved }) {
   const [isEditing, setIsEditing] = useState(false)
   const [savingAll, setSavingAll] = useState(false)
   const [activeTab, setActiveTab] = useState('pembelajaran')
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [newRuleForm, setNewRuleForm] = useState({
+    jenis: 'pembelajaran',
+    skala: 'Nasional',
+    peran: '',
+    sksMin: '',
+    sksMax: '',
+    bobot: '',
+    keterangan: '',
+    tahunMulai: currentYear(),
+  })
+  const [savingNewRule, setSavingNewRule] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
 
   const initDrafts = (list) => {
     return Object.fromEntries(
@@ -417,6 +432,91 @@ function RulesModal({ isOpen, onClose, onSaved }) {
     }
   }
 
+  const handleCreateRule = async (e) => {
+    e?.preventDefault()
+    const bobotNum = Number(newRuleForm.bobot)
+    if (!Number.isFinite(bobotNum) || bobotNum < 0 || bobotNum > 1) {
+      toast.error('Nilai bobot harus berupa angka antara 0.00 dan 1.00')
+      return
+    }
+
+    if (activeTab === 'pembelajaran') {
+      if (!newRuleForm.keterangan.trim()) {
+        toast.error('Kategori & Aktivitas wajib diisi')
+        return
+      }
+      const minVal = newRuleForm.sksMin !== '' ? Number(newRuleForm.sksMin) : null
+      const maxVal = newRuleForm.sksMax !== '' ? Number(newRuleForm.sksMax) : null
+      if (minVal !== null && (!Number.isInteger(minVal) || minVal < 0)) {
+        toast.error('SKS minimal harus berupa bilangan bulat >= 0')
+        return
+      }
+      if (maxVal !== null && (!Number.isInteger(maxVal) || maxVal < 0)) {
+        toast.error('SKS maksimal harus berupa bilangan bulat >= 0')
+        return
+      }
+      if (minVal !== null && maxVal !== null && minVal > maxVal) {
+        toast.error('SKS minimal tidak boleh lebih besar dari SKS maksimal')
+        return
+      }
+    } else {
+      if (!newRuleForm.skala.trim()) {
+        toast.error('Tingkat / skala prestasi wajib diisi')
+        return
+      }
+      if (!newRuleForm.peran.trim()) {
+        toast.error('Posisi capaian / peran wajib diisi (misal: Juara 1, Finalis)')
+        return
+      }
+    }
+
+    setSavingNewRule(true)
+    try {
+      const payload = {
+        jenis: activeTab,
+        bobot: bobotNum,
+        tahunMulai: newRuleForm.tahunMulai ? Number(newRuleForm.tahunMulai) : currentYear(),
+        keterangan: newRuleForm.keterangan.trim() || undefined,
+        sksMin: activeTab === 'pembelajaran' && newRuleForm.sksMin !== '' ? Number(newRuleForm.sksMin) : undefined,
+        sksMax: activeTab === 'pembelajaran' && newRuleForm.sksMax !== '' ? Number(newRuleForm.sksMax) : undefined,
+        skala: activeTab === 'prestasi' ? newRuleForm.skala.trim() : undefined,
+        peran: activeTab === 'prestasi' ? newRuleForm.peran.trim() : undefined,
+      }
+
+      await createIku3Rule(payload)
+      toast.success('Aturan bobot berhasil ditambahkan')
+      setShowAddModal(false)
+      const updatedList = await getIku3Rules()
+      setRules(updatedList)
+      setDrafts(initDrafts(updatedList))
+      onSaved()
+    } catch (err) {
+      toast.error('Gagal menambahkan aturan bobot', { description: err.message })
+    } finally {
+      setSavingNewRule(false)
+    }
+  }
+
+  const handleDeleteRule = async (id, namaAturan) => {
+    if (!window.confirm(`Yakin ingin menghapus aturan "${namaAturan}"?`)) {
+      return
+    }
+
+    setDeletingId(id)
+    try {
+      await deleteIku3Rule(id)
+      toast.success('Aturan bobot berhasil dihapus')
+      const updatedList = await getIku3Rules()
+      setRules(updatedList)
+      setDrafts(initDrafts(updatedList))
+      onSaved()
+    } catch (err) {
+      toast.error('Gagal menghapus aturan bobot', { description: err.message })
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   const pembelajaranRules = rules.filter((r) => r.jenis === 'pembelajaran')
   const prestasiRules = rules.filter((r) => r.jenis === 'prestasi')
 
@@ -431,10 +531,11 @@ function RulesModal({ isOpen, onClose, onSaved }) {
   }, [prestasiRules])
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Kelola Bobot IKU 3"
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={onClose}
+        title="Kelola Bobot IKU 3"
       description="Konfigurasi rentang SKS dan nilai bobot kontribusi mahasiswa mengacu pada Kepmen 358/M/KEP/2025."
       size="3xl"
     >
@@ -448,29 +549,52 @@ function RulesModal({ isOpen, onClose, onSaved }) {
           </span>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-base-200">
+        {/* Tab Navigation & Tombol Tambah */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-base-200">
+          <div className="flex">
+            <button
+              type="button"
+              onClick={() => setActiveTab('pembelajaran')}
+              className={`border-b-2 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors ${
+                activeTab === 'pembelajaran'
+                  ? 'border-primary text-primary font-semibold'
+                  : 'border-transparent text-base-content/60 hover:text-base-content'
+              }`}
+            >
+              Pembelajaran Luar Kampus ({pembelajaranRules.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('prestasi')}
+              className={`border-b-2 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors ${
+                activeTab === 'prestasi'
+                  ? 'border-primary text-primary font-semibold'
+                  : 'border-transparent text-base-content/60 hover:text-base-content'
+              }`}
+            >
+              Prestasi & Kompetisi ({prestasiRules.length})
+            </button>
+          </div>
+
           <button
             type="button"
-            onClick={() => setActiveTab('pembelajaran')}
-            className={`border-b-2 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors ${
-              activeTab === 'pembelajaran'
-                ? 'border-primary text-primary font-semibold'
-                : 'border-transparent text-base-content/60 hover:text-base-content'
-            }`}
+            onClick={() => {
+              setNewRuleForm({
+                jenis: activeTab,
+                skala: 'Nasional',
+                peran: '',
+                sksMin: '',
+                sksMax: '',
+                bobot: '',
+                keterangan: '',
+                tahunMulai: currentYear(),
+              })
+              setShowAddModal(true)
+            }}
+            className="btn btn-xs sm:btn-sm btn-outline btn-primary gap-1.5 mb-1 mr-1 shadow-sm"
           >
-            Pembelajaran Luar Kampus ({pembelajaranRules.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('prestasi')}
-            className={`border-b-2 px-4 py-2.5 text-xs sm:text-sm font-medium transition-colors ${
-              activeTab === 'prestasi'
-                ? 'border-primary text-primary font-semibold'
-                : 'border-transparent text-base-content/60 hover:text-base-content'
-            }`}
-          >
-            Prestasi & Kompetisi ({prestasiRules.length})
+            <Plus className="h-3.5 w-3.5" />
+            <span>Tambah {activeTab === 'pembelajaran' ? 'Pembelajaran' : 'Prestasi'}</span>
           </button>
         </div>
 
@@ -488,6 +612,7 @@ function RulesModal({ isOpen, onClose, onSaved }) {
                   <th className="font-semibold text-xs py-2.5">Kategori & Aktivitas</th>
                   <th className="font-semibold text-xs py-2.5 text-center w-56">Rentang SKS</th>
                   <th className="font-semibold text-xs py-2.5 text-center w-36">Bobot</th>
+                  {isEditing && <th className="font-semibold text-xs py-2.5 text-center w-16">Aksi</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-base-200">
@@ -582,6 +707,20 @@ function RulesModal({ isOpen, onClose, onSaved }) {
                           </span>
                         )}
                       </td>
+
+                      {isEditing && (
+                        <td className="py-3 text-center">
+                          <button
+                            type="button"
+                            disabled={deletingId === rule.id}
+                            onClick={() => handleDeleteRule(rule.id, rule.keterangan || 'Pembelajaran')}
+                            className="btn btn-ghost btn-xs text-error hover:bg-error/10 p-1"
+                            title="Hapus aturan"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   )
                 })}
@@ -597,13 +736,14 @@ function RulesModal({ isOpen, onClose, onSaved }) {
                   <th className="font-semibold text-xs py-2.5 text-center">Tingkat & Posisi Capaian</th>
                   <th className="font-semibold text-xs py-2.5 text-center">Keterangan</th>
                   <th className="font-semibold text-xs py-2.5 text-center w-36">Bobot</th>
+                  {isEditing && <th className="font-semibold text-xs py-2.5 text-center w-16">Aksi</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-base-200">
                 {Object.entries(prestasiBySkala).map(([skala, items]) => (
                   <Fragment key={skala}>
                     <tr className="bg-base-200/40">
-                      <td colSpan={3} className="py-2 px-3.5 text-xs font-bold text-base-content uppercase tracking-wider text-center">
+                      <td colSpan={isEditing ? 4 : 3} className="py-2 px-3.5 text-xs font-bold text-base-content uppercase tracking-wider text-center">
                         Tingkat {skala}
                       </td>
                     </tr>
@@ -642,6 +782,20 @@ function RulesModal({ isOpen, onClose, onSaved }) {
                               </span>
                             )}
                           </td>
+
+                          {isEditing && (
+                            <td className="py-2.5 text-center">
+                              <button
+                                type="button"
+                                disabled={deletingId === rule.id}
+                                onClick={() => handleDeleteRule(rule.id, `${rule.skala} - ${rule.peran}`)}
+                                className="btn btn-ghost btn-xs text-error hover:bg-error/10 p-1"
+                                title="Hapus aturan"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       )
                     })}
@@ -687,7 +841,152 @@ function RulesModal({ isOpen, onClose, onSaved }) {
           )}
         </div>
       </div>
-    </Modal>
+      </Modal>
+
+      {/* Sub-Modal Tambah Aturan Bobot */}
+      <Modal
+        isOpen={showAddModal}
+        onClose={() => {
+          if (!savingNewRule) setShowAddModal(false)
+        }}
+        title={activeTab === 'pembelajaran' ? 'Tambah Aturan Pembelajaran Luar Kampus' : 'Tambah Aturan Prestasi & Kompetisi'}
+      >
+        <form onSubmit={handleCreateRule} className="space-y-4">
+          {activeTab === 'pembelajaran' ? (
+            <>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-base-content">
+                  Kategori & Aktivitas <span className="text-error">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newRuleForm.keterangan}
+                  onChange={(e) => setNewRuleForm((p) => ({ ...p, keterangan: e.target.value }))}
+                  placeholder="Contoh: Wirausaha Merdeka (WMK) atau Magang Mandiri"
+                  className="input w-full"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-base-content">
+                    SKS Minimal
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="999"
+                    value={newRuleForm.sksMin}
+                    onChange={(e) => setNewRuleForm((p) => ({ ...p, sksMin: e.target.value }))}
+                    placeholder="Contoh: 10"
+                    className="input w-full"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-base-content">
+                    SKS Maksimal
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="999"
+                    value={newRuleForm.sksMax}
+                    onChange={(e) => setNewRuleForm((p) => ({ ...p, sksMax: e.target.value }))}
+                    placeholder="Kosongkan jika tanpa batas"
+                    className="input w-full"
+                  />
+                </div>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-base-content">
+                  Tingkat / Skala <span className="text-error">*</span>
+                </label>
+                <select
+                  value={newRuleForm.skala}
+                  onChange={(e) => setNewRuleForm((p) => ({ ...p, skala: e.target.value }))}
+                  className="select w-full"
+                  required
+                >
+                  <option value="Internasional">Tingkat Internasional</option>
+                  <option value="Nasional">Tingkat Nasional</option>
+                  <option value="Provinsi">Tingkat Provinsi</option>
+                  <option value="Wilayah">Tingkat Wilayah / Regional</option>
+                  <option value="Lokal">Tingkat Lokal / Internal</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-base-content">
+                  Posisi Capaian / Peran <span className="text-error">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newRuleForm.peran}
+                  onChange={(e) => setNewRuleForm((p) => ({ ...p, peran: e.target.value }))}
+                  placeholder="Contoh: Juara 1, Juara 2/3/Favorit, Finalis, Best Paper"
+                  className="input w-full"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-base-content">
+                  Keterangan (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={newRuleForm.keterangan}
+                  onChange={(e) => setNewRuleForm((p) => ({ ...p, keterangan: e.target.value }))}
+                  placeholder="Contoh: Juara 1 Tingkat Nasional"
+                  className="input w-full"
+                />
+              </div>
+            </>
+          )}
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-base-content">
+              Nilai Bobot (0.00 – 1.00) <span className="text-error">*</span>
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="1"
+              step="0.01"
+              value={newRuleForm.bobot}
+              onChange={(e) => setNewRuleForm((p) => ({ ...p, bobot: e.target.value }))}
+              placeholder="Contoh: 0.80 atau 1.00"
+              className="input w-full"
+              required
+            />
+            <p className="mt-1 text-xs text-base-content/50">
+              Sesuai Kepmen 358/2025, bobot per kegiatan bernilai antara 0.00 s.d. 1.00.
+            </p>
+          </div>
+
+          <div className="mt-6 flex justify-end gap-3 border-t border-base-200 pt-4">
+            <button
+              type="button"
+              disabled={savingNewRule}
+              onClick={() => setShowAddModal(false)}
+              className={batalBtnClass}
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={savingNewRule}
+              className="btn btn-primary px-5 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90"
+            >
+              {savingNewRule ? 'Menyimpan…' : 'Simpan Aturan'}
+            </button>
+          </div>
+        </form>
+      </Modal>
+    </>
   )
 }
 

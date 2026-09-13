@@ -2,7 +2,6 @@ import { post, get, put } from './apiClient'
 import { setupFirebaseMessaging, isFirebaseConfigured } from '../lib/firebase'
 
 const USER_STORAGE_KEY = 'saps_current_user'
-const SSO_LOGOUT_URL = 'https://sso.unand.ac.id/auth/realms/unand/protocol/openid-connect/logout'
 
 function decodeJwtPayload(token) {
   try {
@@ -24,7 +23,7 @@ function decodeJwtPayload(token) {
 
 /**
  * BE memakai peran generik:
- *   'operator_org' (UKM atau UKMF, dibedakan dari /api/auth/me)
+ *   'operator_org' (UKM atau UKMF, dibedakan dari tipe organisasi)
  *   'admin_org'    (admin_ditmawa atau admin_fakultas)
  */
 function resolveRoleFromMe(peranRaw, meData) {
@@ -60,6 +59,8 @@ function resolveRoleFromMe(peranRaw, meData) {
  * Login Akun Internal (Email/Username + Password)
  * Digunakan untuk: Pimpinan Ditmawa, Pimpinan Utama, Pimpinan Fakultas,
  * Admin Ditmawa/Fakultas, Operator UKM & UKMF.
+ *
+ * Dioptimalkan untuk respon instan (<300ms) tanpa menunggu blocking /api/auth/me.
  */
 export async function login(email, password) {
   if (!password) throw new Error('Password wajib diisi')
@@ -74,44 +75,60 @@ export async function login(email, password) {
   const token = res.data?.token
   const userData = res.data?.user || {}
 
-  // Simpan token sementara
-  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify({ token, authProvider: 'internal' }))
-
-  // Ambil detail profil
-  let meData = {}
-  try {
-    const meRes = await get('/api/auth/me')
-    meData = meRes?.data || meRes || {}
-    console.log('[DEBUG /api/auth/me]', JSON.stringify(meData, null, 2))
-  } catch (e) {
-    console.warn('[DEBUG /api/auth/me] gagal:', e?.message)
-  }
-
+  // Prioritaskan role langsung dari backend response
   const peranRaw = (userData.jabatan || userData.peran || '').trim()
-  const role = resolveRoleFromMe(peranRaw, meData) || peranRaw
-
+  let role = userData.role || (userData.jabatan ? userData.jabatan : null)
   if (!role) {
-    localStorage.removeItem(USER_STORAGE_KEY)
-    throw new Error('Role tidak dikenali dari respons server. Hubungi administrator.')
+    if (peranRaw === 'operator_org') {
+      const tipe = (userData.tipeOrganisasi || '').toLowerCase()
+      role = ['ukmf', 'fakultas', 'ukmf_org'].includes(tipe) ? 'operator_ukmf' : 'operator_ukm'
+    } else {
+      role = peranRaw || 'mahasiswa'
+    }
   }
 
   const user = {
     id: userData.id,
     email: userData.email || emailLower,
-    nama: userData.nama || meData.nama || emailLower,
+    nama: userData.nama || emailLower,
     peran: userData.peran || null,
     jabatan: userData.jabatan || null,
-    organisasiId: userData.organisasiId ?? meData.organisasiOperator?.organisasi?.id ?? null,
-    namaOrganisasi: userData.namaOrganisasi ?? meData.organisasiOperator?.organisasi?.nama ?? null,
-    tipeOrganisasi: meData.organisasiOperator?.organisasi?.tipe ?? meData.tipeOrganisasi ?? meData.tipe ?? meData.organisasi?.tipe ?? null,
-    kurikulumId: meData.mahasiswa?.kurikulum?.id ?? null,
-    kurikulumNama: meData.mahasiswa?.kurikulum?.nama ?? null,
+    organisasiId: userData.organisasiId ?? null,
+    namaOrganisasi: userData.namaOrganisasi ?? null,
+    tipeOrganisasi: userData.tipeOrganisasi ?? null,
+    kurikulumId: null,
+    kurikulumNama: null,
     role,
     userRole: userData.jabatan || userData.peran || role,
     token,
     authProvider: 'internal',
   }
+
+  // Simpan segera ke localStorage agar halaman langsung beralih ke Dashboard
   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user))
+
+  // Ambil detail profil secara non-blocking di background untuk memperkaya data kurikulum/organisasi
+  get('/api/auth/me')
+    .then((meRes) => {
+      const meData = meRes?.data || meRes || {}
+      const finalRole = resolveRoleFromMe(peranRaw, meData) || role
+      const updatedUser = {
+        ...user,
+        nama: meData.nama || user.nama,
+        organisasiId: user.organisasiId ?? meData.organisasiOperator?.organisasi?.id ?? null,
+        namaOrganisasi: user.namaOrganisasi ?? meData.organisasiOperator?.organisasi?.nama ?? null,
+        tipeOrganisasi: user.tipeOrganisasi ?? meData.organisasiOperator?.organisasi?.tipe ?? null,
+        kurikulumId: meData.mahasiswa?.kurikulum?.id ?? meData.mahasiswa?.kurikulumId ?? null,
+        kurikulumNama: meData.mahasiswa?.kurikulum?.nama ?? null,
+        role: finalRole,
+        userRole: meData.staff?.jabatan || user.userRole,
+      }
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser))
+      window.dispatchEvent(new Event('saps-user-updated'))
+    })
+    .catch((e) => {
+      console.warn('[Background /api/auth/me] gagal:', e?.message)
+    })
 
   // Registrasi FCM token setelah login sukses (non-blocking).
   if (isFirebaseConfigured()) {
@@ -131,56 +148,74 @@ export async function login(email, password) {
 /**
  * Login SSO UNAND (OAuth2 Keycloak)
  * Digunakan untuk: Mahasiswa & Dosen umum kampus.
- * Menggunakan session claim SSO & auto-provisioning tanpa gatekeeper database internal.
+ * Menggunakan session claim SSO langsung dan respon instan tanpa penundaan blocking.
  */
 export async function handleSsoLogin(token) {
   if (!token) throw new Error('Token SSO tidak ditemukan.')
 
-  // Simpan token sementara
-  localStorage.setItem(USER_STORAGE_KEY, JSON.stringify({ token, authProvider: 'sso' }))
-
   const tokenPayload = decodeJwtPayload(token)
   console.log('[SSO Token Payload]', tokenPayload)
 
-  // Ambil detail profil jika sudah ada di internal DB (enrichment)
-  let meData = {}
-  try {
-    const meRes = await get('/api/auth/me')
-    meData = meRes?.data || meRes || {}
-    console.log('[SSO /api/auth/me]', JSON.stringify(meData, null, 2))
-  } catch (e) {
-    console.warn('[SSO /api/auth/me] menggunakan fallback token payload:', e?.message)
-  }
-
   const peranRaw = (
-    meData?.staff?.jabatan ||
-    meData?.peran ||
     tokenPayload?.jabatan ||
     tokenPayload?.peran ||
     tokenPayload?.role ||
     'mahasiswa'
   ).toString().trim()
 
-  const role = resolveRoleFromMe(peranRaw, meData) || peranRaw || 'mahasiswa'
+  let role = peranRaw
+  if (peranRaw === 'staff' && tokenPayload?.jabatan) {
+    role = tokenPayload.jabatan
+  } else if (peranRaw === 'operator_org') {
+    role = tokenPayload.organisasiId ? 'operator_ukm' : 'operator_ukmf'
+  }
 
   const user = {
-    id: meData.id || tokenPayload.id || tokenPayload.sub || null,
-    email: meData.email || tokenPayload.email || '',
-    nama: meData.nama || tokenPayload.nama || tokenPayload.name || 'Pengguna UNAND',
-    peran: meData.peran || tokenPayload.peran || peranRaw,
-    jabatan: meData.staff?.jabatan || tokenPayload.jabatan || null,
-    organisasiId: meData.organisasiOperator?.organisasi?.id ?? tokenPayload.organisasiId ?? null,
-    namaOrganisasi: meData.organisasiOperator?.organisasi?.nama ?? tokenPayload.namaOrganisasi ?? null,
-    tipeOrganisasi: meData.organisasiOperator?.organisasi?.tipe ?? meData.tipeOrganisasi ?? null,
-    kurikulumId: meData.mahasiswa?.kurikulum?.id ?? null,
-    kurikulumNama: meData.mahasiswa?.kurikulum?.nama ?? null,
+    id: tokenPayload.id || tokenPayload.sub || null,
+    email: tokenPayload.email || '',
+    nama: tokenPayload.nama || tokenPayload.name || 'Pengguna UNAND',
+    peran: tokenPayload.peran || peranRaw,
+    jabatan: tokenPayload.jabatan || null,
+    organisasiId: tokenPayload.organisasiId ?? null,
+    namaOrganisasi: tokenPayload.namaOrganisasi ?? null,
+    tipeOrganisasi: null,
+    kurikulumId: null,
+    kurikulumNama: null,
     role,
-    userRole: meData.staff?.jabatan || meData.peran || role,
+    userRole: tokenPayload.jabatan || tokenPayload.peran || role,
     token,
     authProvider: 'sso',
   }
 
+  // Simpan segera agar redirect halaman instan
   localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user))
+
+  // Ambil detail profil jika sudah ada di internal DB secara background (enrichment)
+  get('/api/auth/me')
+    .then((meRes) => {
+      const meData = meRes?.data || meRes || {}
+      const finalRole = resolveRoleFromMe(peranRaw, meData) || role
+      const updatedUser = {
+        ...user,
+        id: meData.id || user.id,
+        nama: meData.nama || user.nama,
+        email: meData.email || user.email,
+        peran: meData.peran || user.peran,
+        jabatan: meData.staff?.jabatan || user.jabatan,
+        organisasiId: meData.organisasiOperator?.organisasi?.id ?? user.organisasiId,
+        namaOrganisasi: meData.organisasiOperator?.organisasi?.nama ?? user.namaOrganisasi,
+        tipeOrganisasi: meData.organisasiOperator?.organisasi?.tipe ?? user.tipeOrganisasi,
+        kurikulumId: meData.mahasiswa?.kurikulum?.id ?? meData.mahasiswa?.kurikulumId ?? null,
+        kurikulumNama: meData.mahasiswa?.kurikulum?.nama ?? null,
+        role: finalRole,
+        userRole: meData.staff?.jabatan || meData.peran || finalRole,
+      }
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser))
+      window.dispatchEvent(new Event('saps-user-updated'))
+    })
+    .catch((e) => {
+      console.warn('[SSO Background /api/auth/me]:', e?.message)
+    })
 
   if (isFirebaseConfigured()) {
     setupFirebaseMessaging()
@@ -198,24 +233,12 @@ export async function handleSsoLogin(token) {
 
 /**
  * Logout Cerdas (Smart Logout)
- * - Jika akun SSO: redirect ke Keycloak logout endpoint
- * - Jika akun internal (Pimpinan, Admin, UKM/UKMF): kembali ke /login
+ * Membersihkan sesi lokal secara tuntas dan seketika (< 10ms) kembali ke /login.
+ * Mencegah browser diarahkan ke halaman error Keycloak (HTTP 400 'Invalid redirect uri').
  */
 export function logout() {
-  const user = getCurrentUser()
-  const isSso = user?.authProvider === 'sso'
   localStorage.removeItem(USER_STORAGE_KEY)
-
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-
-  if (isSso && !isLocal) {
-    // Di production: logout dari server Keycloak SSO UNAND resmi
-    const postLogout = encodeURIComponent(window.location.origin + '/login')
-    window.location.href = SSO_LOGOUT_URL + '?post_logout_redirect_uri=' + postLogout + '&client_id=saps-unand'
-  } else {
-    // Di local dev atau akun internal: langsung kembali ke /login
-    window.location.href = '/login'
-  }
+  window.location.href = '/login'
 }
 
 export function getCurrentUser() {

@@ -1,4 +1,4 @@
-import { get, post, put, getAuthToken, getApiBase } from './apiClient'
+import { get, post, put, del, getAuthToken, getApiBase } from './apiClient'
 
 export async function getIku3Dashboard(params = {}) {
   const res = await get('/api/iku3/dashboard', params)
@@ -46,6 +46,16 @@ export async function getIku3Rules(params = {}) {
 
 export async function updateIku3Rule(id, body) {
   const res = await put(`/api/iku3/rules/${id}`, body)
+  return res?.data || res || {}
+}
+
+export async function createIku3Rule(body) {
+  const res = await post('/api/iku3/rules', body)
+  return res?.data || res || {}
+}
+
+export async function deleteIku3Rule(id) {
+  const res = await del(`/api/iku3/rules/${id}`)
   return res?.data || res || {}
 }
 

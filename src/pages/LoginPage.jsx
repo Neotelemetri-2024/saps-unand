@@ -11,9 +11,26 @@ function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [ssoRedirecting, setSsoRedirecting] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
   const navigate = useNavigate()
+
+  // Reset semua loading state saat halaman dipulihkan dari bfcache (tombol Back browser)
+  useEffect(() => {
+    const handleResetLoading = () => {
+      setSubmitting(false)
+      setSsoRedirecting(false)
+    }
+
+    window.addEventListener('pageshow', handleResetLoading)
+    window.addEventListener('focus', handleResetLoading)
+
+    return () => {
+      window.removeEventListener('pageshow', handleResetLoading)
+      window.removeEventListener('focus', handleResetLoading)
+    }
+  }, [])
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search)
@@ -23,12 +40,14 @@ function LoginPage() {
 
     if (error) {
       setErrorMsg(decodeURIComponent(error))
+      setSubmitting(false)
+      setSsoRedirecting(false)
       window.history.replaceState({}, document.title, '/login')
       return
     }
 
     if (sso === 'success' && token) {
-      setLoading(true)
+      setSubmitting(true)
       setErrorMsg('')
       handleSsoLogin(token)
         .then((user) => {
@@ -54,17 +73,20 @@ function LoginPage() {
           setErrorMsg(err.message || 'Gagal menyelesaikan login SSO.')
         })
         .finally(() => {
-          setLoading(false)
+          setSubmitting(false)
+          setSsoRedirecting(false)
         })
       return
     }
 
+    setSubmitting(false)
+    setSsoRedirecting(false)
     localStorage.removeItem('saps_current_user')
   }, [navigate])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setLoading(true)
+    setSubmitting(true)
     setErrorMsg('')
     try {
       const user = await login(email, password)
@@ -88,14 +110,24 @@ function LoginPage() {
       setPassword('')
       setErrorMsg(err.message || 'Username atau password yang Anda masukkan salah.')
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
 
   const handleSsoClick = () => {
-    setLoading(true)
+    setSsoRedirecting(true)
     setErrorMsg('')
-    const baseUrl = import.meta.env.VITE_SSO_LOGIN_URL || 'https://api-studentconnect.unand.ac.id/api/auth/sso'
+
+    // Reset otomatis setelah 6 detik jika user batal / navigasi tertahan
+    setTimeout(() => {
+      setSsoRedirecting(false)
+    }, 6000)
+
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    const defaultUrl = isLocal
+      ? 'http://localhost:3000/api/auth/sso/mock'
+      : 'https://api-studentconnect.unand.ac.id/api/auth/sso'
+    const baseUrl = import.meta.env.VITE_SSO_LOGIN_URL || defaultUrl
     const ssoUrl = `${baseUrl}?frontend=${encodeURIComponent(window.location.origin)}`
     window.location.href = ssoUrl
   }
@@ -150,9 +182,13 @@ function LoginPage() {
         </div>
       ) : null}
 
-      <button type="submit" disabled={loading} className="btn btn-primary w-full">
-        {loading ? <span className="loading loading-spinner loading-sm" /> : null}
-        {loading ? 'Memproses…' : 'Masuk'}
+      <button
+        type="submit"
+        disabled={submitting || ssoRedirecting}
+        className="btn btn-primary w-full"
+      >
+        {submitting ? <span className="loading loading-spinner loading-sm" /> : null}
+        {submitting ? 'Memproses…' : 'Masuk'}
       </button>
 
       <div className="divider text-xs text-base-content/50">atau</div>
@@ -160,10 +196,11 @@ function LoginPage() {
       <button
         type="button"
         onClick={handleSsoClick}
-        disabled={loading}
+        disabled={submitting || ssoRedirecting}
         className="btn btn-outline btn-primary w-full"
       >
-        Masuk dengan SSO Unand
+        {ssoRedirecting ? <span className="loading loading-spinner loading-sm mr-2" /> : null}
+        {ssoRedirecting ? 'Mengarahkan ke SSO…' : 'Masuk dengan SSO Unand'}
       </button>
     </form>
   )

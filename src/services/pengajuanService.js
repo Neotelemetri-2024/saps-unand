@@ -203,6 +203,8 @@ export async function ajukanKegiatan(data = {}) {
     deskripsi: data.deskripsi || data.deskripsiKegiatan || '',
     linkWebsite: data.linkWebsite || '',
     emailPenyelenggara: data.emailPenyelenggara || '',
+    ...(data.forceNew ? { forceNew: true } : {}),
+    ...(data.existingKegiatanId ? { existingKegiatanId: data.existingKegiatanId } : {}),
   }
   const res = await post('/api/mahasiswa/kegiatan-eksternal', body)
   emitUpdate('pengajuan')
