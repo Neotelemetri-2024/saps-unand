@@ -96,7 +96,7 @@ jobs:
             fi
 
             echo "Menggunakan PM2: $PM2_BIN"
-            $PM2_BIN reload "$APP_NAME" || $PM2_BIN restart "$APP_NAME" || $PM2_BIN reload all || $PM2_BIN restart all || echo "PM2 command selesai"
+            $PM2_BIN reload "$APP_NAME" --update-env || $PM2_BIN restart "$APP_NAME" --update-env || { echo "❌ Proses PM2 '$APP_NAME' tidak ditemukan"; exit 1; }
 
             echo "========================================="
             echo "✅ DEPLOYMENT SELESAI & BERHASIL!"

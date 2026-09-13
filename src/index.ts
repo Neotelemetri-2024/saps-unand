@@ -23,6 +23,7 @@ import organisasiRoutes from './routes/organisasi.routes';
 import organisasiFakultasRoutes from './routes/organisasi_fakultas.routes';
 import pesertaRoutes from './routes/peserta.routes';
 import { getPublicCvOgPage, getPublicCvImage } from './controllers/mahasiswa/cv.controller';
+import { getValidasiSertifikat } from './controllers/mahasiswa/sertifikat.controller';
 import { linkedinCallback } from './controllers/mahasiswa/linkedin.controller';
 import { initializeFirebase } from './lib/fcm';
 import { initSiaScheduler } from './services/sia/siaScheduler.service';
@@ -100,6 +101,9 @@ app.get('/health', (req: Request, res: Response) => {
 app.get('/api/health', (req: Request, res: Response) => {
   res.status(200).send('OK');
 });
+
+// Validasi QR sertifikat harus publik dan didaftarkan sebelum router berautentikasi.
+app.get('/api/umum/sertifikat/validasi/:token', getValidasiSertifikat);
 
 // Halaman "og-page" CV publik — target link share LinkedIn (lihat cv.controller.ts).
 // Didaftarkan di root (bukan /api) karena URL ini yang di-crawl LinkedIn/Facebook/dll

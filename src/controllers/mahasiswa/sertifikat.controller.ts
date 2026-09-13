@@ -115,7 +115,9 @@ export async function buildSertifikatDataForMahasiswa(mahasiswaId: bigint): Prom
 }
 
 async function sendCertificate(res: Response, data: MahasiswaSertifikatData, mahasiswaId: bigint) {
-  const filename = `Sertifikat-SAPS-${data.nim}.pdf`;
+  const safeName = data.nama.replace(/[\\/:*?"<>|\r\n]+/g, '').trim() || 'Mahasiswa';
+  const filename = `${safeName} - ${data.nim} - Sertifikat SAPS.pdf`;
+  const asciiFilename = filename.replace(/[^\x20-\x7E]/g, '');
   const token = randomBytes(24).toString('hex');
   const issuance = await prisma.sertifikatPenerbitan.create({
     data: { token, mahasiswaId, snapshot: data as any },
@@ -124,7 +126,10 @@ async function sendCertificate(res: Response, data: MahasiswaSertifikatData, mah
   try {
     const pdf = await createSertifikatPdf(data, `${frontendUrl}/sertifikat/validasi/${token}`);
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    );
     res.setHeader('Content-Length', pdf.length);
     res.setHeader('Cache-Control', 'private, no-store');
     res.send(pdf);

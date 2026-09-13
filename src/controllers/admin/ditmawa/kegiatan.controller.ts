@@ -338,7 +338,9 @@ export const createKegiatan = async (req: Request, res: Response): Promise<void>
     );
 
     const isSuperAdmin = effectiveRole === 'pimpinan_ditmawa' || effectiveRole === 'pimpinan_utama';
-    const canSkipPa = resolvedAsal === 'universitas' && ['admin_ditmawa', 'pimpinan_ditmawa'].includes(effectiveRole);
+    const canSkipPa =
+      (resolvedAsal === 'universitas' && ['admin_ditmawa', 'pimpinan_ditmawa'].includes(effectiveRole)) ||
+      (resolvedAsal === 'kurikuler_ukmf' && effectiveRole === 'admin_fakultas');
     const tanpaPersetujuanPa = canSkipPa && body.tanpaPersetujuanPa;
     const isDirectPublish = isSuperAdmin && (body.publikasikan === true || (req.body as any)?.status === 'disetujui');
     const initialStatus = isDirectPublish ? 'disetujui' : 'draft';
@@ -470,7 +472,9 @@ export const editKegiatan = async (req: Request, res: Response): Promise<void> =
         existing.organisasiId,
         body.penyelenggaraExt ?? existing.penyelenggaraExt,
       )) ?? existing.penyelenggaraExt ?? undefined;
-    const canSkipPa = resolvedAsal === 'universitas' && ['admin_ditmawa', 'pimpinan_ditmawa'].includes(effectiveRole);
+    const canSkipPa =
+      (resolvedAsal === 'universitas' && ['admin_ditmawa', 'pimpinan_ditmawa'].includes(effectiveRole)) ||
+      (resolvedAsal === 'kurikuler_ukmf' && effectiveRole === 'admin_fakultas');
     const tanpaPersetujuanPa = canSkipPa && body.tanpaPersetujuanPa;
 
     await prisma.$transaction(async (tx) => {
