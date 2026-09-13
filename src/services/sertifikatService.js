@@ -16,7 +16,11 @@ export async function getValidasiSertifikat(token) {
 function filenameFromDisposition(value) {
   const utf8 = value?.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
   const plain = value?.match(/filename="?([^";]+)"?/i)?.[1]
-  return decodeURIComponent(utf8 || plain || 'Sertifikat-SAPS.pdf')
+  try {
+    return decodeURIComponent(utf8 || plain || 'Sertifikat SAPS.pdf')
+  } catch {
+    return plain || 'Sertifikat SAPS.pdf'
+  }
 }
 
 export async function getSertifikatPdf() {

@@ -30,7 +30,9 @@ function EventForm({ editItem, onCancel, onSaved, asal = 'universitas' }) {
   const currentUser = getCurrentUser()
   const role = currentUser?.role || ""
   const isPimpinan = role === "pimpinan_ditmawa" || role === "pimpinan_utama"
-  const canSkipPa = asal === 'universitas' && (role === 'admin_ditmawa' || role === 'pimpinan_ditmawa')
+  const canSkipPa =
+    (asal === 'universitas' && (role === 'admin_ditmawa' || role === 'pimpinan_ditmawa')) ||
+    (asal === 'kurikuler_ukmf' && role === 'admin_fakultas')
   const [loading, setLoading] = useState(false)
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showAjukanConfirm, setShowAjukanConfirm] = useState(false)
