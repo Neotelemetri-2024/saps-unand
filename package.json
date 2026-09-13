@@ -18,6 +18,7 @@
     "sync:mbkm": "node dist/scripts/syncMbkm.js",
     "sync:mbkm:dev": "tsx src/scripts/syncMbkm.ts",
     "clean:sia": "node dist/scripts/cleanSiaData.js",
+    "clean:pascasarjana": "node dist/scripts/cleanPascasarjana.js",
     "fix:kurikulum": "node dist/scripts/fixKurikulumMahasiswa.js"
   },
   "prisma": {
