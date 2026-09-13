@@ -80,7 +80,9 @@ async function main() {
   await prisma.perolehanPoin.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } });
   await prisma.saranPA.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } });
   await prisma.cvGenerated.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } });
-  await prisma.sertifikatPenerbitan.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } });
+  if ((prisma as any).sertifikatPenerbitan) {
+    await (prisma as any).sertifikatPenerbitan.deleteMany({ where: { mahasiswaId: { in: userIdsToDelete } } });
+  }
   await prisma.notifikasi.deleteMany({ where: { userId: { in: userIdsToDelete } } });
   await prisma.auditLog.deleteMany({ where: { aktorId: { in: userIdsToDelete } } });
 
