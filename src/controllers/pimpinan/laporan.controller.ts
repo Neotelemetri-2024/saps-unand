@@ -25,6 +25,7 @@ export const getPreviewLaporan = async (req: Request, res: Response, next: NextF
       angkatan: angkatan ? Number(angkatan) : undefined,
       tahunAkademik: tahunAkademik ? String(tahunAkademik) : undefined,
       kurikulumId: kurikulumId ? Number(kurikulumId) : undefined,
+      isPreview: true,
     });
 
     res.status(200).json({

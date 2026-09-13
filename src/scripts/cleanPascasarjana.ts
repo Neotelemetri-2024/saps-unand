@@ -118,6 +118,28 @@ async function main() {
     console.log(`✅ Terhapus: ${delProdi.count} master program studi pascasarjana kosong.`);
   }
 
+  // E. Hapus master Fakultas Pascasarjana jika ada (misal: "Sekolah Pascasarjana")
+  const pascaFakultas = await prisma.fakultas.findMany({
+    where: {
+      nama: { contains: 'Pascasarjana' },
+    },
+    include: { _count: { select: { programStudi: true } } },
+  });
+  for (const f of pascaFakultas) {
+    try {
+      if (f._count.programStudi === 0) {
+        await prisma.fakultas.delete({ where: { id: f.id } });
+        console.log(`✅ Terhapus: Fakultas "${f.nama}" (Sekolah Pascasarjana).`);
+      } else {
+        await prisma.fakultas.update({ where: { id: f.id }, data: { deletedAt: new Date() } });
+        console.log(`✅ Diarsip (soft-delete): Fakultas "${f.nama}".`);
+      }
+    } catch (_) {
+      await prisma.fakultas.update({ where: { id: f.id }, data: { deletedAt: new Date() } });
+      console.log(`✅ Diarsip (soft-delete): Fakultas "${f.nama}".`);
+    }
+  }
+
   const sisaMhs = await prisma.mahasiswa.count();
   console.log(`\n🎉 Pembersihan selesai! Sisa mahasiswa aktif di SAPS (S1/D4/D3): ${sisaMhs} orang.\n`);
 }

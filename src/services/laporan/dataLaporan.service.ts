@@ -17,6 +17,7 @@ export interface FilterLaporan {
   kurikulumId?: number;
   startDate?: Date;
   endDate?: Date;
+  isPreview?: boolean;
 }
 
 export interface LaporanDataResult {
@@ -240,9 +241,44 @@ export async function getLaporanData(filter: FilterLaporan): Promise<LaporanData
   if (filter.angkatan) {
     mhsWhere.angkatan = filter.angkatan;
   }
+  if (filter.kurikulumId) {
+    mhsWhere.kurikulumId = filter.kurikulumId;
+  }
 
-  const mahasiswaRawAll = await prisma.mahasiswa.findMany({
+  // A. Hitung total mahasiswa dengan query COUNT (ringan & instan ~2ms)
+  const totalMahasiswa = await prisma.mahasiswa.count({ where: mhsWhere });
+
+  // B. Kelompokkan jumlah mahasiswa per program studi (1 query groupBy ~5ms)
+  const mhsPerProdiGroup = await prisma.mahasiswa.groupBy({
+    by: ['prodiId'],
     where: mhsWhere,
+    _count: { userId: true },
+  });
+  const mhsCountByProdiId = new Map<number, number>();
+  mhsPerProdiGroup.forEach((g) => mhsCountByProdiId.set(g.prodiId, g._count.userId));
+
+  // C. Distribusi mahasiswa per kurikulum (1 query groupBy ~3ms)
+  const mhsPerKurikulumGroup = await prisma.mahasiswa.groupBy({
+    by: ['kurikulumId'],
+    where: mhsWhere,
+    _count: { userId: true },
+  });
+  const mhsCountByKurikulumId = new Map<number, number>();
+  mhsPerKurikulumGroup.forEach((g) => {
+    if (g.kurikulumId != null) mhsCountByKurikulumId.set(g.kurikulumId, g._count.userId);
+  });
+
+  kurikulumSources.forEach((k: any) => {
+    const assignedCount = mhsCountByKurikulumId.get(k.id) || 0;
+    perKurikulumPoin.set(k.id, { sumPerTahun: [0, 0, 0, 0, 0], count: assignedCount });
+  });
+
+  // D. Query HANYA mahasiswa yang memiliki perolehan poin sah (sangat cepat ~10ms karena hanya mahasiswa aktif berkegiatan)
+  const mahasiswaDenganPoin = await prisma.mahasiswa.findMany({
+    where: {
+      ...mhsWhere,
+      perolehanPoin: { some: { status: 'sah' } },
+    },
     include: {
       user: { select: { nama: true, email: true } },
       prodi: {
@@ -270,37 +306,20 @@ export async function getLaporanData(filter: FilterLaporan): Promise<LaporanData
     orderBy: [{ angkatan: 'desc' }, { nim: 'asc' }],
   });
 
-  // 4. Proses Data Capaian Tiap Mahasiswa & Pemetaan Kurikulum
+  // 4. Proses Data Capaian Mahasiswa dengan Poin & Pemetaan Kurikulum
   const kurikulumMap = await resolveKurikulumMahasiswaMap(
-    mahasiswaRawAll.map((m) => ({
+    mahasiswaDenganPoin.map((m) => ({
       userId: m.userId,
       angkatan: m.angkatan,
-      kurikulumId: (m as any).kurikulumId,
+      kurikulumId: m.kurikulumId,
     })),
   );
-
-  // Filter mahasiswa berdasarkan kurikulum jika kurikulumId dipilih
-  const mahasiswaRaw = filter.kurikulumId
-    ? mahasiswaRawAll.filter((m) => {
-        // 1. Jika ada assignment eksplisit di database
-        if (m.kurikulumId != null) {
-          return Number(m.kurikulumId) === Number(filter.kurikulumId);
-        }
-        // 2. Jika kurikulum ter-resolve dari angkatan
-        const resolved = kurikulumMap.get(String(m.userId));
-        if (resolved) {
-          return Number(resolved.id) === Number(filter.kurikulumId);
-        }
-        // 3. Fallback jika kurikulumAcuan cocok dengan filter
-        return kurikulumAcuan ? Number(kurikulumAcuan.id) === Number(filter.kurikulumId) : false;
-      })
-    : mahasiswaRawAll;
 
   let totalPoinSahGlobal = 0;
   let totalMahasiswaLulusTarget = 0;
   const sumPoinPerTahun = [0, 0, 0, 0, 0]; // index 1..4
 
-  const mahasiswaList = mahasiswaRaw.map((m) => {
+  const mhsDenganPoinList = mahasiswaDenganPoin.map((m) => {
     const kurikulumMhs = kurikulumFilter || kurikulumMap.get(String(m.userId)) || kurikulumAcuan || null;
     const targetPoinTotal = targetPoinKurikulum(kurikulumMhs) || targetPoinTotalDefault;
     const localSubMap = new Map<number, number>();
@@ -311,7 +330,6 @@ export async function getLaporanData(filter: FilterLaporan): Promise<LaporanData
       });
     }
 
-    // Sama dengan dashboard mahasiswa: filter perolehan + capping per capaian
     const perolehanFiltered = kurikulumMhs
       ? perolehanUntukKurikulum(m.perolehanPoin, kurikulumMhs.id)
       : m.perolehanPoin;
@@ -340,11 +358,9 @@ export async function getLaporanData(filter: FilterLaporan): Promise<LaporanData
       sumPoinPerTahun[th] += poinPerTahun[th];
     }
 
-    // Accumulate per-kurikulum stats untuk grafik multi-kurikulum
     const kurikulumMhsId = kurikulumMhs?.id;
     if (kurikulumMhsId && perKurikulumPoin.has(kurikulumMhsId)) {
       const pkStats = perKurikulumPoin.get(kurikulumMhsId)!;
-      pkStats.count++;
       for (let th = 1; th <= 4; th++) {
         pkStats.sumPerTahun[th] += poinPerTahun[th];
       }
@@ -383,7 +399,92 @@ export async function getLaporanData(filter: FilterLaporan): Promise<LaporanData
     };
   });
 
-  const totalMahasiswa = mahasiswaRaw.length;
+  // Siapkan daftar mahasiswa (preview dibatasi agar tidak overload network browser)
+  let mahasiswaList = [...mhsDenganPoinList];
+  const MAX_PREVIEW_MHS = 150;
+  if (filter.isPreview && mahasiswaList.length < MAX_PREVIEW_MHS && totalMahasiswa > mahasiswaList.length) {
+    const needed = MAX_PREVIEW_MHS - mahasiswaList.length;
+    const existingUserIds = mahasiswaDenganPoin.map((m) => m.userId);
+    const extraMhs = await prisma.mahasiswa.findMany({
+      where: {
+        ...mhsWhere,
+        ...(existingUserIds.length > 0 ? { userId: { notIn: existingUserIds } } : {}),
+      },
+      take: needed,
+      select: {
+        nim: true,
+        angkatan: true,
+        kurikulumId: true,
+        user: { select: { nama: true } },
+        prodi: { select: { nama: true, fakultas: { select: { nama: true } } } },
+      },
+      orderBy: [{ angkatan: 'desc' }, { nim: 'asc' }],
+    });
+
+    for (const em of extraMhs) {
+      const kId = em.kurikulumId || kurikulumAcuan?.id || 0;
+      const kNama = kurikulumSources.find((k: any) => k.id === kId)?.nama || kurikulumAcuan?.nama || '-';
+      mahasiswaList.push({
+        nim: em.nim,
+        nama: em.user?.nama || '-',
+        fakultas: em.prodi?.fakultas?.nama || '-',
+        prodi: em.prodi?.nama || '-',
+        angkatan: em.angkatan,
+        kurikulumId: kId,
+        kurikulumNama: kNama,
+        poinTahun1: 0,
+        poinTahun2: 0,
+        poinTahun3: 0,
+        poinTahun4: 0,
+        totalPoin: 0,
+        totalPoinProgres: 0,
+        targetPoin: targetPoinTotalDefault,
+        persentase: 0,
+        statusTarget: 'Belum Tercapai',
+      });
+    }
+  } else if (!filter.isPreview && totalMahasiswa > mahasiswaList.length) {
+    const existingUserIds = mahasiswaDenganPoin.map((m) => m.userId);
+    const extraMhs = await prisma.mahasiswa.findMany({
+      where: {
+        ...mhsWhere,
+        ...(existingUserIds.length > 0 ? { userId: { notIn: existingUserIds } } : {}),
+      },
+      take: Math.max(0, 2000 - mahasiswaList.length),
+      select: {
+        nim: true,
+        angkatan: true,
+        kurikulumId: true,
+        user: { select: { nama: true } },
+        prodi: { select: { nama: true, fakultas: { select: { nama: true } } } },
+      },
+      orderBy: [{ angkatan: 'desc' }, { nim: 'asc' }],
+    });
+
+    for (const em of extraMhs) {
+      const kId = em.kurikulumId || kurikulumAcuan?.id || 0;
+      const kNama = kurikulumSources.find((k: any) => k.id === kId)?.nama || kurikulumAcuan?.nama || '-';
+      mahasiswaList.push({
+        nim: em.nim,
+        nama: em.user?.nama || '-',
+        fakultas: em.prodi?.fakultas?.nama || '-',
+        prodi: em.prodi?.nama || '-',
+        angkatan: em.angkatan,
+        kurikulumId: kId,
+        kurikulumNama: kNama,
+        poinTahun1: 0,
+        poinTahun2: 0,
+        poinTahun3: 0,
+        poinTahun4: 0,
+        totalPoin: 0,
+        totalPoinProgres: 0,
+        targetPoin: targetPoinTotalDefault,
+        persentase: 0,
+        statusTarget: 'Belum Tercapai',
+      });
+    }
+  }
+
   const rataRataPoin = totalMahasiswa > 0 ? Math.round(totalPoinSahGlobal / totalMahasiswa) : 0;
 
   // Hitung target rata-rata tertimbang berdasarkan distribusi mahasiswa per kurikulum
@@ -404,9 +505,10 @@ export async function getLaporanData(filter: FilterLaporan): Promise<LaporanData
     }
   }
 
-  // Gunakan rata-rata persentase individu (lebih akurat untuk campuran)
+  // Gunakan rata-rata persentase individu
+  const totalPersenSemuaMhs = mhsDenganPoinList.reduce((sum, m) => sum + m.persentase, 0);
   const rataRataPersentase = totalMahasiswa > 0
-    ? Math.round(mahasiswaList.reduce((sum, m) => sum + m.persentase, 0) / totalMahasiswa)
+    ? Math.round(totalPersenSemuaMhs / totalMahasiswa)
     : 0;
   const persentaseLulusTarget = totalMahasiswa > 0 ? Math.round((totalMahasiswaLulusTarget / totalMahasiswa) * 100) : 0;
 
@@ -438,7 +540,7 @@ export async function getLaporanData(filter: FilterLaporan): Promise<LaporanData
           { nama: 'Tahun 4', tahun: 4, targetPoin: Math.round(kurTargetTotal / 4) },
         ];
 
-    const mhsCount = pkStats?.count || 0;
+    const mhsCount = pkStats?.count || totalMahasiswa || 0;
 
     for (const c of entries) {
       const th = (c.tahun >= 1 && c.tahun <= 4) ? c.tahun : 1;
@@ -463,17 +565,22 @@ export async function getLaporanData(filter: FilterLaporan): Promise<LaporanData
   if (scope === 'fakultas' || effectiveFakultasId) {
     komparasiUnit = 'prodi';
     const prodiList = await prisma.programStudi.findMany({
-      where: effectiveFakultasId ? { fakultasId: effectiveFakultasId } : {},
+      where: {
+        deletedAt: null,
+        ...(effectiveFakultasId ? { fakultasId: effectiveFakultasId } : {}),
+      },
       select: { id: true, nama: true },
     });
 
     const prodiMap = new Map<number, { id: number; nama: string; totalMhs: number; totalPoin: number; katMap: Record<string, number> }>();
-    prodiList.forEach((p) => prodiMap.set(p.id, { id: p.id, nama: p.nama, totalMhs: 0, totalPoin: 0, katMap: {} }));
+    prodiList.forEach((p) => {
+      const countMhs = mhsCountByProdiId.get(p.id) || 0;
+      prodiMap.set(p.id, { id: p.id, nama: p.nama, totalMhs: countMhs, totalPoin: 0, katMap: {} });
+    });
 
-    mahasiswaRaw.forEach((m) => {
+    mahasiswaDenganPoin.forEach((m) => {
       const pEntry = prodiMap.get(m.prodiId);
       if (!pEntry) return;
-      pEntry.totalMhs++;
       m.perolehanPoin.forEach((pp) => {
         pEntry.totalPoin += pp.totalPoin;
         const kName = pp.kegiatan?.kategori?.nama || 'Lainnya';
@@ -495,19 +602,36 @@ export async function getLaporanData(filter: FilterLaporan): Promise<LaporanData
       });
     });
   } else {
-    // Tingkat Universitas: Ranking Fakultas
+    // Tingkat Universitas: Ranking Fakultas (Kecuali Pascasarjana)
     komparasiUnit = 'fakultas';
-    const fakultasList = await prisma.fakultas.findMany({ select: { id: true, nama: true } });
+    const fakultasList = await prisma.fakultas.findMany({
+      where: {
+        deletedAt: null,
+        NOT: { nama: { contains: 'Pascasarjana' } },
+      },
+      select: { id: true, nama: true },
+    });
     const fakultasMap = new Map<number, { id: number; nama: string; totalMhs: number; totalPoin: number; katMap: Record<string, number> }>();
     fakultasList.forEach((f) => fakultasMap.set(f.id, { id: f.id, nama: f.nama, totalMhs: 0, totalPoin: 0, katMap: {} }));
 
-    mahasiswaRaw.forEach((m) => {
-      const fId = m.prodi?.fakultas?.id;
-      if (!fId) return;
-      const fEntry = fakultasMap.get(fId);
-      if (!fEntry) return;
+    const allProdis = await prisma.programStudi.findMany({
+      where: { deletedAt: null },
+      select: { id: true, fakultasId: true },
+    });
+    const prodiToFakId = new Map(allProdis.map((p) => [p.id, p.fakultasId]));
 
-      fEntry.totalMhs++;
+    mhsCountByProdiId.forEach((count, prodiId) => {
+      const fId = prodiToFakId.get(prodiId);
+      if (fId && fakultasMap.has(fId)) {
+        fakultasMap.get(fId)!.totalMhs += count;
+      }
+    });
+
+    mahasiswaDenganPoin.forEach((m) => {
+      const fId = m.prodi?.fakultas?.id;
+      if (!fId || !fakultasMap.has(fId)) return;
+      const fEntry = fakultasMap.get(fId)!;
+
       m.perolehanPoin.forEach((pp) => {
         fEntry.totalPoin += pp.totalPoin;
         const kName = pp.kegiatan?.kategori?.nama || 'Lainnya';
@@ -541,6 +665,9 @@ export async function getLaporanData(filter: FilterLaporan): Promise<LaporanData
     where: {
       status: 'sah',
       ...(effectiveFakultasId ? { mahasiswa: { prodi: { fakultasId: effectiveFakultasId } } } : {}),
+      ...(filter.prodiId ? { mahasiswa: { prodiId: filter.prodiId } } : {}),
+      ...(filter.angkatan ? { mahasiswa: { angkatan: filter.angkatan } } : {}),
+      ...(filter.kurikulumId ? { mahasiswa: { kurikulumId: filter.kurikulumId } } : {}),
       kegiatan: {
         OR: [
           { skala: { nama: { in: ['Nasional', 'Internasional', 'Wilayah / Regional'] } } },
@@ -572,22 +699,19 @@ export async function getLaporanData(filter: FilterLaporan): Promise<LaporanData
     take: 200,
   });
 
-  const allowedUserIds = new Set(mahasiswaRaw.map((m) => m.userId));
-  const prestasiList = perolehanPrestasi
-    .filter((p) => allowedUserIds.has(p.mahasiswa.userId))
-    .map((p) => ({
-      nim: p.mahasiswa.nim,
-      namaMahasiswa: p.mahasiswa.user?.nama || '-',
-      fakultas: p.mahasiswa.prodi?.fakultas?.nama || '-',
-      prodi: p.mahasiswa.prodi?.nama || '-',
-      namaKegiatan: p.kegiatan.nama,
-      kategori: p.kegiatan.kategori?.nama || 'Kompetisi',
-      skala: p.kegiatan.skala?.nama || 'Universitas',
-      peran: p.klaimPoin?.peranUsulan?.nama || 'Peserta',
-      penyelenggara: p.kegiatan.organisasi?.nama || p.kegiatan.penyelenggaraExt || 'Ditmawa UNAND',
-      tanggal: p.kegiatan.tanggalMulai ? new Date(p.kegiatan.tanggalMulai).toISOString().split('T')[0] : '-',
-      poin: p.totalPoin,
-    }));
+  const prestasiList = perolehanPrestasi.map((p) => ({
+    nim: p.mahasiswa.nim,
+    namaMahasiswa: p.mahasiswa.user?.nama || '-',
+    fakultas: p.mahasiswa.prodi?.fakultas?.nama || '-',
+    prodi: p.mahasiswa.prodi?.nama || '-',
+    namaKegiatan: p.kegiatan.nama,
+    kategori: p.kegiatan.kategori?.nama || 'Kompetisi',
+    skala: p.kegiatan.skala?.nama || 'Universitas',
+    peran: p.klaimPoin?.peranUsulan?.nama || 'Peserta',
+    penyelenggara: p.kegiatan.organisasi?.nama || p.kegiatan.penyelenggaraExt || 'Ditmawa UNAND',
+    tanggal: p.kegiatan.tanggalMulai ? new Date(p.kegiatan.tanggalMulai).toISOString().split('T')[0] : '-',
+    poin: p.totalPoin,
+  }));
 
   // 8. Keaktifan Organisasi / UKM
   const ormawaWhere: any = {};

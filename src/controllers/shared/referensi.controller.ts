@@ -8,7 +8,10 @@ export { getMatriksPoin, getKategori, getSkala, getPeran } from '../pimpinan/dit
 export const getFakultas = async (_req: Request, res: Response): Promise<void> => {
   try {
     const data = await prisma.fakultas.findMany({
-      where: { deletedAt: null },
+      where: {
+        deletedAt: null,
+        NOT: { nama: { contains: 'Pascasarjana' } },
+      },
       orderBy: { nama: 'asc' },
       select: { id: true, nama: true },
     });
