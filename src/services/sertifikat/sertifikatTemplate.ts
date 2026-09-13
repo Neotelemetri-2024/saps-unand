@@ -68,7 +68,7 @@ function cornerBorders(asset: string) {
 function verificationFooterMarkup(qrDataUrl?: string) {
   return `
     <footer class="verification-footer">
-      ${qrDataUrl ? `<div class="verification-qr"><img src="${qrDataUrl}" alt="QR validasi sertifikat"><span>Pindai untuk validasi</span></div>` : '<div></div>'}
+      ${qrDataUrl ? `<div class="verification-qr"><img src="${qrDataUrl}" alt="QR validasi sertifikat"></div>` : '<div></div>'}
       <div class="signature">
         <p>a.n Wakil Rektor I<br>Direktur Kemahasiswaan</p>
         <p>Dr. Eng. Ir. Dendi Adi Saputra, M.Eng, S.T., M.T.<br>NIP 198712012012121004</p>
@@ -174,7 +174,7 @@ export function renderCertificateHtml(data: MahasiswaSertifikatData, pages: Achi
     .certificate-watermark{position:absolute;left:50%;top:53%;width:75mm;height:90mm;object-fit:contain;transform:translate(-50%,-50%);opacity:.06;z-index:1;pointer-events:none}
     .certificate-content{position:relative;z-index:2;height:100%;padding:12mm 16mm 10mm}
     .header{display:grid;grid-template-columns:20mm 1fr 20mm;align-items:center;height:24mm}.header-logo{width:15mm;height:18mm;object-fit:contain;justify-self:center}.university{text-align:center}.university h1{font-size:20pt;line-height:1;margin:0;font-weight:700}.university p{font-size:9pt;margin:2mm 0 0}.rule{border-top:1.4pt solid #111;border-bottom:.6pt solid #111;height:1.5mm;margin:1.5mm 0 5mm}
-    .title{text-align:center;margin:0 0 9mm}.title h2{font:700 15.5pt Arial,sans-serif;margin:0;letter-spacing:0.3px}
+    .title{text-align:center;margin:0 0 9mm}.title h2{font-family:'Lucida Bright','Lucida Serif',Lucida,serif;font-weight:700;font-size:15.5pt;margin:0;letter-spacing:0.3px}
     
     .main-grid{display:grid;grid-template-columns:114mm 1fr;gap:10mm;min-height:105mm}.left-column,.right-column{min-width:0}.section-title{font:700 10.5pt Arial,sans-serif;margin:0 0 3.5mm;text-transform:uppercase;letter-spacing:0.2px}
     .identity{display:grid;grid-template-columns:41mm 3mm minmax(0,1fr);font-size:9.5pt;line-height:1.44;margin-bottom:5mm}.identity span{overflow-wrap:anywhere}.recap{width:100%;border-collapse:collapse;font-size:9.5pt;table-layout:fixed}.recap th,.recap td{border:.6pt solid #777;padding:2.2mm 2.5mm;vertical-align:middle;overflow-wrap:anywhere}.recap th{text-align:left;font-weight:700}.recap th:first-child,.recap td:first-child{width:10mm;text-align:center}.recap th:last-child,.recap td:last-child{width:19mm;text-align:center}.recap tbody tr{height:9mm}.recap-total td{font-weight:700;text-align:center}.category{font-weight:700;font-size:10pt;margin-top:5mm}
@@ -183,7 +183,11 @@ export function renderCertificateHtml(data: MahasiswaSertifikatData, pages: Achi
     
     .continuation-grid{display:grid;grid-template-columns:1fr 1fr;gap:8mm;font-size:8.5pt;line-height:1.28;margin-top:4mm}
     
-    .verification-footer{position:absolute;right:18mm;bottom:10mm;display:grid;grid-template-columns:25mm 58mm;align-items:end;gap:5mm;min-height:35mm;font-size:9pt;line-height:1.25}.verification-qr{text-align:center;font-size:6.5pt}.verification-qr img{display:block;width:23mm;height:23mm;margin:0 auto 1mm}.signature p{margin:0}.signature p+p{margin-top:10mm}
+    .verification-footer{position:absolute;right:16mm;bottom:10mm;display:flex;align-items:flex-end;gap:6mm;min-height:35mm;font-size:9pt;line-height:1.25}
+    .verification-qr img{display:block;width:24mm;height:24mm}
+    .signature{white-space:nowrap}
+    .signature p{margin:0}
+    .signature p+p{margin-top:10mm}
   </style></head><body>
     ${pagesHtml}
   </body></html>`;
