@@ -171,10 +171,13 @@ function chunkArray<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-// ─── Helper: hash password ──────────────────────────────────────────────────
+// ─── Helper: hash password (cached salt untuk optimasi kecepatan bulk sync) ───
+let cachedSyncSalt: string | null = null;
 async function hashPassword(plain: string): Promise<string> {
-  const salt = await bcrypt.genSalt(10);
-  return bcrypt.hash(plain, salt);
+  if (!cachedSyncSalt) {
+    cachedSyncSalt = await bcrypt.genSalt(6);
+  }
+  return bcrypt.hash(plain, cachedSyncSalt);
 }
 
 // ─── In-memory Cache Mapping ────────────────────────────────────────────────
@@ -798,76 +801,104 @@ export async function syncMahasiswa(options?: SyncMahasiswaOptions): Promise<Syn
               }
             }
 
+            let userId: bigint;
+
             const existingUser = await prisma.user.findUnique({ where: { email } });
 
             if (existingUser) {
+              userId = existingUser.id;
               if (existingUser.nama !== mhs.mhsNama) {
                 await prisma.user.update({
                   where: { id: existingUser.id },
                   data: { nama: mhs.mhsNama },
                 });
               }
-
-              const existingMhs = await prisma.mahasiswa.findUnique({ where: { userId: existingUser.id } });
-              if (!existingMhs) {
-                try {
-                  await prisma.mahasiswa.create({
-                    data: { userId: existingUser.id, nim, prodiId, angkatan, dosenPaId, kurikulumId },
-                  });
-                } catch (mhsCreateErr: any) {
-                  if (mhsCreateErr.code === 'P2003' && mhsCreateErr.message?.includes('dosen_pa_id')) {
-                    await prisma.mahasiswa.create({
-                      data: { userId: existingUser.id, nim, prodiId, angkatan, dosenPaId: null, kurikulumId },
-                    });
+              result.updated++;
+            } else {
+              try {
+                const passwordHash = await hashPassword(`Unand#${nim}`);
+                const newUser = await prisma.user.create({
+                  data: {
+                    nama: mhs.mhsNama,
+                    email,
+                    passwordHash,
+                    peran: 'mahasiswa',
+                  },
+                });
+                userId = newUser.id;
+                result.created++;
+              } catch (userCreateErr: any) {
+                // Jika user dengan email ini sudah ada (karena proses paralel atau sinkronisasi sebelumnya)
+                if (
+                  userCreateErr.code === 'P2002' ||
+                  userCreateErr.message?.includes('users_email_key') ||
+                  userCreateErr.message?.includes('Unique constraint')
+                ) {
+                  const fallbackUser = await prisma.user.findUnique({ where: { email } });
+                  if (fallbackUser) {
+                    userId = fallbackUser.id;
+                    result.updated++;
                   } else {
-                    throw mhsCreateErr;
+                    throw userCreateErr;
                   }
+                } else {
+                  throw userCreateErr;
                 }
-              } else {
+              }
+            }
+
+            // Hubungkan profil Mahasiswa dengan userId yang valid
+            const existingMhs = await prisma.mahasiswa.findUnique({ where: { userId } });
+            if (!existingMhs) {
+              // Cek juga apakah ada mahasiswa lain dengan NIM ini (menghindari P2002 pada nim_key)
+              const existingByNim = await prisma.mahasiswa.findUnique({ where: { nim } });
+              if (existingByNim) {
                 try {
                   await prisma.mahasiswa.update({
-                    where: { userId: existingUser.id },
+                    where: { nim },
                     data: { prodiId, angkatan, dosenPaId, kurikulumId },
                   });
                 } catch (mhsUpdateErr: any) {
                   if (mhsUpdateErr.code === 'P2003' && mhsUpdateErr.message?.includes('dosen_pa_id')) {
                     await prisma.mahasiswa.update({
-                      where: { userId: existingUser.id },
+                      where: { nim },
                       data: { prodiId, angkatan, dosenPaId: null, kurikulumId },
                     });
                   } else {
                     throw mhsUpdateErr;
                   }
                 }
-              }
-
-              result.updated++;
-            } else {
-              const passwordHash = await hashPassword(`Unand#${nim}`);
-              const newUser = await prisma.user.create({
-                data: {
-                  nama: mhs.mhsNama,
-                  email,
-                  passwordHash,
-                  peran: 'mahasiswa',
-                },
-              });
-
-              try {
-                await prisma.mahasiswa.create({
-                  data: { userId: newUser.id, nim, prodiId, angkatan, dosenPaId, kurikulumId },
-                });
-              } catch (mhsCreateErr: any) {
-                if (mhsCreateErr.code === 'P2003' && mhsCreateErr.message?.includes('dosen_pa_id')) {
+              } else {
+                try {
                   await prisma.mahasiswa.create({
-                    data: { userId: newUser.id, nim, prodiId, angkatan, dosenPaId: null, kurikulumId },
+                    data: { userId, nim, prodiId, angkatan, dosenPaId, kurikulumId },
                   });
-                } else {
-                  throw mhsCreateErr;
+                } catch (mhsCreateErr: any) {
+                  if (mhsCreateErr.code === 'P2003' && mhsCreateErr.message?.includes('dosen_pa_id')) {
+                    await prisma.mahasiswa.create({
+                      data: { userId, nim, prodiId, angkatan, dosenPaId: null, kurikulumId },
+                    });
+                  } else {
+                    throw mhsCreateErr;
+                  }
                 }
               }
-
-              result.created++;
+            } else {
+              try {
+                await prisma.mahasiswa.update({
+                  where: { userId },
+                  data: { prodiId, angkatan, dosenPaId, kurikulumId },
+                });
+              } catch (mhsUpdateErr: any) {
+                if (mhsUpdateErr.code === 'P2003' && mhsUpdateErr.message?.includes('dosen_pa_id')) {
+                  await prisma.mahasiswa.update({
+                    where: { userId },
+                    data: { prodiId, angkatan, dosenPaId: null, kurikulumId },
+                  });
+                } else {
+                  throw mhsUpdateErr;
+                }
+              }
             }
           } catch (err: any) {
             result.errors.push(`Mahasiswa "${mhs.mhsNama}" (NIM: ${nim}): ${err.message}`);
