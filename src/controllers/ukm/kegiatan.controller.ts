@@ -1034,15 +1034,19 @@ export const submitPoinPesertaUKM = async (req: Request, res: Response, next: Ne
               // Jangan finalize di sini — tunggu Dosen PA
               status: sudahAdaPoinSah ? existingKlaim.status : 'draft',
               validatorId: aktorId,
-              alasan: 'Peran disiapkan oleh penyelenggara; menunggu persetujuan Dosen PA'
+              alasan: kegiatan.tanpaPersetujuanPa
+                ? 'Peran disiapkan oleh penyelenggara; persetujuan Dosen PA tidak diperlukan'
+                : 'Peran disiapkan oleh penyelenggara; menunggu persetujuan Dosen PA'
             }
           });
 
           await tx.notifikasi.create({
             data: {
               userId: partisipasi.mahasiswaId,
-              judul: 'Siap Minta Persetujuan Dosen PA',
-              isi: `Peran Anda pada kegiatan "${kegiatan.nama}" telah diperbarui oleh ${penyelenggaraNama}. Ajukan persetujuan Dosen PA di Riwayat Kegiatan Internal agar poin dapat dicatat.`,
+              judul: kegiatan.tanpaPersetujuanPa ? 'Poin Kegiatan Diproses' : 'Siap Minta Persetujuan Dosen PA',
+              isi: kegiatan.tanpaPersetujuanPa
+                ? `Kehadiran dan peran Anda pada kegiatan "${kegiatan.nama}" telah diperbarui oleh ${penyelenggaraNama}. Poin diproses tanpa persetujuan Dosen PA.`
+                : `Peran Anda pada kegiatan "${kegiatan.nama}" telah diperbarui oleh ${penyelenggaraNama}. Ajukan persetujuan Dosen PA di Riwayat Kegiatan Internal agar poin dapat dicatat.`,
               refType: 'klaim_poin',
               refId: existingKlaim.id
             }
@@ -1058,15 +1062,19 @@ export const submitPoinPesertaUKM = async (req: Request, res: Response, next: Ne
             peranUsulanId: peranId,
             status: 'draft',
             validatorId: aktorId,
-            alasan: 'Siap diajukan: menunggu persetujuan Dosen PA'
+            alasan: kegiatan.tanpaPersetujuanPa
+              ? 'Persetujuan Dosen PA tidak diperlukan'
+              : 'Siap diajukan: menunggu persetujuan Dosen PA'
           }
         });
 
         await tx.notifikasi.create({
           data: {
             userId: partisipasi.mahasiswaId,
-            judul: 'Siap Minta Persetujuan Dosen PA',
-            isi: `Kehadiran dan peran Anda pada kegiatan "${kegiatan.nama}" telah dicatat oleh ${penyelenggaraNama}. Ajukan persetujuan Dosen PA di Riwayat Kegiatan Internal agar poin dapat dicatat.`,
+            judul: kegiatan.tanpaPersetujuanPa ? 'Poin Kegiatan Diproses' : 'Siap Minta Persetujuan Dosen PA',
+            isi: kegiatan.tanpaPersetujuanPa
+              ? `Kehadiran dan peran Anda pada kegiatan "${kegiatan.nama}" telah dicatat oleh ${penyelenggaraNama}. Poin diproses tanpa persetujuan Dosen PA.`
+              : `Kehadiran dan peran Anda pada kegiatan "${kegiatan.nama}" telah dicatat oleh ${penyelenggaraNama}. Ajukan persetujuan Dosen PA di Riwayat Kegiatan Internal agar poin dapat dicatat.`,
             refType: 'klaim_poin',
             refId: klaim.id
           }
@@ -1099,8 +1107,14 @@ export const submitPoinPesertaUKM = async (req: Request, res: Response, next: Ne
       }
     });
 
+    if (kegiatan.tanpaPersetujuanPa) {
+      for (const partisipasi of pesertaHadir) {
+        await cairkanPoinPartisipasi(partisipasi.id);
+      }
+    }
+
     const ringkasan = [
-      dibuat > 0 ? `${dibuat} peserta siap minta PA` : null,
+      dibuat > 0 ? `${dibuat} peserta ${kegiatan.tanpaPersetujuanPa ? 'diproses' : 'siap minta PA'}` : null,
       diperbarui > 0 ? `${diperbarui} peserta diperbarui` : null,
       tetap > 0 ? `${tetap} peserta tanpa perubahan` : null,
       dibatalkan > 0 ? `${dibatalkan} poin dibatalkan` : null,
@@ -1109,7 +1123,9 @@ export const submitPoinPesertaUKM = async (req: Request, res: Response, next: Ne
 
     res.status(200).json({
       success: true,
-      message: `Submit selesai: ${ringkasan}. Poin akan tercatat setelah Dosen PA menyetujui.`,
+      message: kegiatan.tanpaPersetujuanPa
+        ? `Submit selesai: ${ringkasan}. Poin telah diproses tanpa persetujuan Dosen PA.`
+        : `Submit selesai: ${ringkasan}. Poin akan tercatat setelah Dosen PA menyetujui.`,
       data: {
         totalDibuat: dibuat,
         totalDiperbarui: diperbarui,
