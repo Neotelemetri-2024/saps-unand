@@ -21,6 +21,7 @@ import {
   getOrganisasi,
 } from "../controllers/shared/referensi.controller";
 import { getPublicCv } from "../controllers/mahasiswa/cv.controller";
+import { getValidasiSertifikat } from "../controllers/mahasiswa/sertifikat.controller";
 import {
   siaSyncAll,
   siaSyncFakultas,
@@ -36,6 +37,7 @@ const router = Router();
 
 // Public CV Route (No JWT required)
 router.get("/cv/public/:token", getPublicCv);
+router.get("/sertifikat/validasi/:token", getValidasiSertifikat);
 
 router.use(authenticateJWT);
 

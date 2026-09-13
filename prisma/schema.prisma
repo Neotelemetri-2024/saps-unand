@@ -228,7 +228,8 @@ model Mahasiswa {
   partisipasi   Partisipasi[]
   perolehanPoin PerolehanPoin[]
   saranPA       SaranPA[]       @relation("MahasiswaSaran")
-  cvGenerated   CvGenerated[]
+  cvGenerated          CvGenerated[]
+  sertifikatPenerbitan SertifikatPenerbitan[]
 
   publicCvToken String? @unique @map("public_cv_token") @db.VarChar(50)
 
@@ -239,6 +240,21 @@ model Mahasiswa {
   @@index([angkatan])
   @@index([kurikulumId])
   @@map("mahasiswa")
+}
+
+/// Snapshot sertifikat SAPS yang dapat diverifikasi melalui token publik.
+model SertifikatPenerbitan {
+  id           BigInt    @id @default(autoincrement())
+  token        String    @unique @db.VarChar(64)
+  mahasiswaId BigInt    @map("mahasiswa_id")
+  snapshot     Json
+  diterbitkanAt DateTime @default(now()) @map("diterbitkan_at")
+  dicabutAt    DateTime? @map("dicabut_at")
+
+  mahasiswa Mahasiswa @relation(fields: [mahasiswaId], references: [userId], onDelete: Cascade)
+
+  @@index([mahasiswaId])
+  @@map("sertifikat_penerbitan")
 }
 
 /// 1.6 Profil staf struktural — Admin/Pimpinan × Ditmawa/Fakultas
