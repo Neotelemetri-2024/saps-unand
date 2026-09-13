@@ -19,6 +19,7 @@ const EMPTY_FORM = {
   tanggalSelesai: null,
   lokasi: '',
   kuota: '',
+  tanpaPersetujuanPa: false,
   selectedKurikulumIds: [],
   selectedCapaianIds: [],
   alokasi: [],
@@ -29,6 +30,7 @@ function EventForm({ editItem, onCancel, onSaved, asal = 'universitas' }) {
   const currentUser = getCurrentUser()
   const role = currentUser?.role || ""
   const isPimpinan = role === "pimpinan_ditmawa" || role === "pimpinan_utama"
+  const canSkipPa = asal === 'universitas' && (role === 'admin_ditmawa' || role === 'pimpinan_ditmawa')
   const [loading, setLoading] = useState(false)
   const [loadingEdit, setLoadingEdit] = useState(false)
   const [showAjukanConfirm, setShowAjukanConfirm] = useState(false)
@@ -94,6 +96,7 @@ function EventForm({ editItem, onCancel, onSaved, asal = 'universitas' }) {
           tanggalSelesai: detail.tanggalSelesai ? new Date(detail.tanggalSelesai) : null,
           lokasi: detail.lokasi || '',
           kuota: detail.kuota ?? '',
+          tanpaPersetujuanPa: Boolean(detail.tanpaPersetujuanPa),
           selectedKurikulumIds: kurikulumIds.length > 0 ? kurikulumIds : (kurikulumList.map((k) => k.id)),
           selectedCapaianIds: capaianIds,
           alokasi,
@@ -160,6 +163,7 @@ function EventForm({ editItem, onCancel, onSaved, asal = 'universitas' }) {
     kuota: Number(form.kuota) || undefined,
     tanggalMulai: toISODate(form.tanggalMulai),
     tanggalSelesai: toISODate(form.tanggalSelesai),
+    tanpaPersetujuanPa: canSkipPa && form.tanpaPersetujuanPa,
     alokasi: form.alokasi,
   })
 
@@ -366,6 +370,26 @@ function EventForm({ editItem, onCancel, onSaved, asal = 'universitas' }) {
                 />
               </div>
             </div>
+
+            {canSkipPa && (
+              <div className="flex items-start justify-between gap-5 border-t border-base-300 pt-5">
+                <div>
+                  <label htmlFor="tanpa-persetujuan-pa" className="text-sm font-semibold text-base-content">
+                    Tanpa Persetujuan Dosen PA
+                  </label>
+                  <p className="mt-1 text-sm text-base-content/60">
+                    Jika aktif, poin dapat cair setelah kehadiran dan peran peserta lengkap tanpa menunggu izin Dosen PA.
+                  </p>
+                </div>
+                <input
+                  id="tanpa-persetujuan-pa"
+                  type="checkbox"
+                  className="toggle toggle-primary mt-0.5 shrink-0"
+                  checked={form.tanpaPersetujuanPa}
+                  onChange={(e) => setForm((prev) => ({ ...prev, tanpaPersetujuanPa: e.target.checked }))}
+                />
+              </div>
+            )}
           </div>
         </div>
 
