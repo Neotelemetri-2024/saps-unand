@@ -13,10 +13,12 @@
     "seed:dummy": "tsx prisma/seed-dummy-pimpinan.ts",
     "seed:all": "tsx prisma/seed-all-pimpinan.ts",
     "seed:pimpinan-utama": "tsx prisma/seed-pimpinan-utama.ts",
-    "sync:sia": "tsx src/scripts/syncSia.ts",
-    "sync:mbkm": "tsx src/scripts/syncMbkm.ts",
-    "clean:sia": "tsx src/scripts/cleanSiaData.ts",
-    "fix:kurikulum": "tsx src/scripts/fixKurikulumMahasiswa.ts"
+    "sync:sia": "node dist/scripts/syncSia.js",
+    "sync:sia:dev": "tsx src/scripts/syncSia.ts",
+    "sync:mbkm": "node dist/scripts/syncMbkm.js",
+    "sync:mbkm:dev": "tsx src/scripts/syncMbkm.ts",
+    "clean:sia": "node dist/scripts/cleanSiaData.js",
+    "fix:kurikulum": "node dist/scripts/fixKurikulumMahasiswa.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -845,16 +845,62 @@ export const ssoCallback = async (req: Request, res: Response): Promise<void> =>
       return;
     }
 
-    // Deteksi Peran (Role) secara cerdas dari klaim SSO:
+    // ─── 1. Deteksi Peran (Role) secara Cerdas & Akurat ───
     const isStudentEmail = email.endsWith('@student.unand.ac.id');
-    const isNimUsername = /^\d{10}$/.test(username);
-    const isNimEmail = /^\d{10}/.test(email);
+    const isOfficialUnandEmail =
+      email.endsWith('@unand.ac.id') ||
+      (email.endsWith('.unand.ac.id') && !isStudentEmail);
+
+    // Cek apakah username (NIDN/NIP) atau email sudah terdaftar di tabel Dosen / Staff / Mahasiswa
+    const dbDosen = await prisma.dosen.findFirst({
+      where: {
+        OR: [
+          ...(username ? [{ nidn: username }] : []),
+          { user: { email } },
+        ],
+      },
+      include: { user: true },
+    });
+
+    const dbStaff = await prisma.staff.findFirst({
+      where: {
+        OR: [
+          ...(username ? [{ nip: username }] : []),
+          { user: { email } },
+        ],
+      },
+      include: { user: true },
+    });
+
+    const dbMahasiswa = await prisma.mahasiswa.findFirst({
+      where: {
+        OR: [
+          ...(username ? [{ nim: username }] : []),
+          { user: { email } },
+        ],
+      },
+      include: { user: true },
+    });
 
     let peran: 'mahasiswa' | 'dosen' | 'staff' = 'mahasiswa';
-    if (isStudentEmail || isNimUsername || isNimEmail) {
-      peran = 'mahasiswa';
-    } else if (email.endsWith('@unand.ac.id')) {
+
+    if (dbDosen) {
       peran = 'dosen';
+    } else if (dbStaff) {
+      peran = 'staff';
+    } else if (isStudentEmail) {
+      // Mahasiswa UNAND selalu menggunakan @student.unand.ac.id
+      peran = 'mahasiswa';
+    } else if (isOfficialUnandEmail) {
+      // Email resmi UNAND (bukan @student) merupakan Dosen / Tendik
+      peran = 'dosen';
+    } else if (dbMahasiswa) {
+      peran = 'mahasiswa';
+    } else if (/^\d{18}$/.test(username)) {
+      // NIP 18 digit
+      peran = 'dosen';
+    } else {
+      peran = 'mahasiswa';
     }
 
     // SESUAI ARAHAN DTI: Gunakan Session SSO langsung tanpa menolak jika belum ada di database
@@ -866,7 +912,11 @@ export const ssoCallback = async (req: Request, res: Response): Promise<void> =>
 
     // Sinkronisasi DB Ringan (Graceful & Non-blocking agar modul kegiatan & poin tetap berfungsi)
     try {
-      let user = await prisma.user.findUnique({ where: { email } });
+      let user = await prisma.user.findUnique({
+        where: { email },
+        include: { dosen: true, mahasiswa: true, staff: true },
+      });
+
       if (!user) {
         user = await prisma.user.create({
           data: {
@@ -876,12 +926,35 @@ export const ssoCallback = async (req: Request, res: Response): Promise<void> =>
             peran: peran as any,
             aktif: true,
           },
+          include: { dosen: true, mahasiswa: true, staff: true },
         });
       } else {
         if (!user.aktif) {
           res.redirect(`${clientFrontendUrl}/login?error=${encodeURIComponent('Akun StudentConnect Anda dinonaktifkan. Hubungi admin.')}`);
           return;
         }
+
+        // KOREKSI OTOMATIS: Jika user di database sebelumnya salah tercatat sebagai 'mahasiswa' padahal sebenarnya dosen
+        if (peran === 'dosen' && user.peran !== 'dosen') {
+          console.log(`[SSO Auto-Fix] Mengoreksi peran user ${email} dari ${user.peran} menjadi dosen`);
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { peran: 'dosen' },
+            include: { dosen: true, mahasiswa: true, staff: true },
+          });
+
+          // Hapus record mahasiswa nyasar jika sempat terbuat salah sebelumnya
+          await prisma.mahasiswa.deleteMany({
+            where: { userId: user.id },
+          });
+        } else if (peran === 'staff' && user.peran !== 'staff') {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { peran: 'staff' },
+            include: { dosen: true, mahasiswa: true, staff: true },
+          });
+        }
+
         finalPeran = user.peran as any;
         if (user.nama) nama = user.nama;
       }
@@ -910,9 +983,34 @@ export const ssoCallback = async (req: Request, res: Response): Promise<void> =>
           organisasiId = operator.organisasiId;
           namaOrganisasi = operator.organisasi.nama;
         }
+      } else if (user.peran === 'dosen') {
+        const existingDosenRecord = await prisma.dosen.findUnique({ where: { userId: user.id } });
+        if (!existingDosenRecord) {
+          const matchedByNidn = username ? await prisma.dosen.findFirst({
+            where: { nidn: username },
+          }) : null;
+
+          if (matchedByNidn && matchedByNidn.userId !== user.id) {
+            await prisma.dosen.update({
+              where: { userId: matchedByNidn.userId },
+              data: { userId: user.id },
+            });
+          } else if (!matchedByNidn) {
+            const defaultFakultas = await prisma.fakultas.findFirst();
+            await prisma.dosen.create({
+              data: {
+                userId: user.id,
+                nidn: username || `NIDN-${user.id}`,
+                fakultasId: defaultFakultas?.id || 1,
+              },
+            });
+          }
+        }
+        // Pastikan tidak ada data mahasiswa nyasar
+        await prisma.mahasiswa.deleteMany({ where: { userId: user.id } });
       } else if (user.peran === 'mahasiswa') {
-        const existingMhs = await prisma.mahasiswa.findUnique({ where: { userId: user.id } });
-        if (!existingMhs) {
+        const existingMhsRecord = await prisma.mahasiswa.findUnique({ where: { userId: user.id } });
+        if (!existingMhsRecord) {
           let nim = username;
           if (!/^\d{10}$/.test(nim)) {
             const match = email.match(/^(\d{10})/);
@@ -940,18 +1038,6 @@ export const ssoCallback = async (req: Request, res: Response): Promise<void> =>
             },
           });
         }
-      } else if (user.peran === 'dosen') {
-        const existingDosen = await prisma.dosen.findUnique({ where: { userId: user.id } });
-        if (!existingDosen) {
-          const defaultFakultas = await prisma.fakultas.findFirst();
-          await prisma.dosen.create({
-            data: {
-              userId: user.id,
-              nidn: username || `NIDN-${user.id}`,
-              fakultasId: defaultFakultas?.id || 1,
-            },
-          });
-        }
       }
     } catch (syncErr) {
       console.warn('[SSO DB Graceful Sync]', syncErr);
@@ -960,9 +1046,11 @@ export const ssoCallback = async (req: Request, res: Response): Promise<void> =>
     const tokenPayload: Record<string, any> = {
       id: userIdStr,
       peran: finalPeran,
+      role: finalPeran === 'staff' && staffJabatan ? staffJabatan : finalPeran,
       nama,
       email,
       nim: finalPeran === 'mahasiswa' ? (username || undefined) : undefined,
+      nidn: finalPeran === 'dosen' ? (username || undefined) : undefined,
       jabatan: staffJabatan,
       organisasiId,
       namaOrganisasi,
