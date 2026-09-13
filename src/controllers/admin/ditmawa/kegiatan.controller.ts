@@ -22,6 +22,7 @@ const createKegiatanSchema = z.object({
   organisasiId: z.number().int().positive('Organisasi ID tidak valid').optional(),
   penyelenggaraExt: z.string().optional(),
   publikasikan: z.boolean().optional(),
+  tanpaPersetujuanPa: z.boolean().optional().default(false),
   // Alokasi capaian
   alokasi: z.array(z.object({
     subCapaianId: z.number({ message: 'Sub capaian wajib dipilih' }).int().positive('Sub capaian tidak valid'),
@@ -337,6 +338,8 @@ export const createKegiatan = async (req: Request, res: Response): Promise<void>
     );
 
     const isSuperAdmin = effectiveRole === 'pimpinan_ditmawa' || effectiveRole === 'pimpinan_utama';
+    const canSkipPa = resolvedAsal === 'universitas' && ['admin_ditmawa', 'pimpinan_ditmawa'].includes(effectiveRole);
+    const tanpaPersetujuanPa = canSkipPa && body.tanpaPersetujuanPa;
     const isDirectPublish = isSuperAdmin && (body.publikasikan === true || (req.body as any)?.status === 'disetujui');
     const initialStatus = isDirectPublish ? 'disetujui' : 'draft';
 
@@ -354,6 +357,7 @@ export const createKegiatan = async (req: Request, res: Response): Promise<void>
         organisasiId: resolvedOrganisasiId ?? undefined,
         penyelenggaraExt: resolvedPenyelenggaraExt,
         kurikulumId: defaultKurikulumId,
+        tanpaPersetujuanPa,
         dibuatOleh,
         status: initialStatus,
         kegiatanCapaian: {
@@ -466,6 +470,8 @@ export const editKegiatan = async (req: Request, res: Response): Promise<void> =
         existing.organisasiId,
         body.penyelenggaraExt ?? existing.penyelenggaraExt,
       )) ?? existing.penyelenggaraExt ?? undefined;
+    const canSkipPa = resolvedAsal === 'universitas' && ['admin_ditmawa', 'pimpinan_ditmawa'].includes(effectiveRole);
+    const tanpaPersetujuanPa = canSkipPa && body.tanpaPersetujuanPa;
 
     await prisma.$transaction(async (tx) => {
       await tx.kegiatan.update({
@@ -481,6 +487,7 @@ export const editKegiatan = async (req: Request, res: Response): Promise<void> =
           lokasi: body.lokasi,
           kuota: body.kuota,
           penyelenggaraExt: resolvedPenyelenggaraExt,
+          tanpaPersetujuanPa,
         }
       });
 

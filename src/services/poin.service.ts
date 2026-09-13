@@ -73,9 +73,9 @@ export async function cairkanPoinPartisipasi(
     return { claimed: false, reason: 'Peran peserta belum ditentukan' };
   }
 
-  // 3. Cek Izin Dosen PA
+  // 3. Cek Izin Dosen PA, kecuali event global secara eksplisit melewatinya.
   const izinTerbaru = partisipasi.izinPA[0];
-  if (!izinTerbaru || izinTerbaru.status !== 'disetujui') {
+  if (!partisipasi.kegiatan.tanpaPersetujuanPa && (!izinTerbaru || izinTerbaru.status !== 'disetujui')) {
     return { claimed: false, reason: 'Izin Dosen PA belum disetujui' };
   }
 

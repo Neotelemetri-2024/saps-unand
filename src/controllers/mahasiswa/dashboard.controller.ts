@@ -632,7 +632,8 @@ export const getRiwayatKegiatanInternal = async (req: Request, res: Response, ne
         else if (izin.status === 'revisi') statusIzin = 'Perlu Revisi';
       }
 
-      const isIzinDisetujui = izin?.status === 'disetujui';
+      const tanpaPersetujuanPa = p.kegiatan.tanpaPersetujuanPa;
+      const isIzinDisetujui = tanpaPersetujuanPa || izin?.status === 'disetujui';
       const isHadir = p.kehadiran === true;
       const isPeranAda = Boolean(p.peranVerifId);
       // Poin sah lewat klaim, atau fallback perolehan langsung di kegiatan
@@ -650,7 +651,7 @@ export const getRiwayatKegiatanInternal = async (req: Request, res: Response, ne
         statusPoin = 'Menunggu Peran';
       }
 
-      const canMintaIzinPA = !izin || izin.status === 'revisi' || izin.status === 'ditolak';
+      const canMintaIzinPA = !tanpaPersetujuanPa && (!izin || izin.status === 'revisi' || izin.status === 'ditolak');
 
       return {
         no: i + 1,
@@ -683,7 +684,8 @@ export const getRiwayatKegiatanInternal = async (req: Request, res: Response, ne
           alasan: izin.alasan,
           decidedAt: izin.decidedAt
         } : null,
-        statusIzinPA: statusIzin,
+        statusIzinPA: tanpaPersetujuanPa ? 'Tidak Diperlukan' : statusIzin,
+        tanpaPersetujuanPa,
         canMintaIzinPA,
         statusPoin,
         kurikulumId: userKurikulum?.id ?? p.mahasiswa?.kurikulum?.id ?? null,

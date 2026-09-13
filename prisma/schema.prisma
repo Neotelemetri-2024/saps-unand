@@ -493,6 +493,7 @@ model Kegiatan {
   linkPenyelenggara  String?        @map("link_penyelenggara") @db.VarChar(255)
   emailPenyelenggara String?        @map("email_penyelenggara") @db.VarChar(255)
   kurikulumId        Int?           @map("kurikulum_id") // legacy/default; settlement mengikuti kurikulum mahasiswa
+  tanpaPersetujuanPa Boolean        @default(false) @map("tanpa_persetujuan_pa")
   dibuatOleh      BigInt         @map("dibuat_oleh")
   status          StatusKegiatan @default(draft)
   createdAt       DateTime       @default(now()) @map("created_at")
