@@ -8,6 +8,7 @@ import { getCurrentUser } from '../../services/authService'
 import { getPortofolio } from '../../services/dashboardService'
 import { shareCvToLinkedIn, getLinkedInConnectUrl, getLinkedInStatus, disconnectLinkedIn } from '../../services/cvService'
 import { batalBtnClass } from '../../components/ui/buttonStyles'
+import logoUnand from '../../assets/logo_unand.png'
 
 function LinkedInIcon(props) {
   return (
@@ -342,9 +343,16 @@ function GenerateCV() {
             {/* Dokumen CV — layout Civitor ATS: padat, Times, header Title | meta + tanggal kanan */}
             <div
               id="cv-print-area"
-              className="mx-auto w-full max-w-[210mm] bg-white px-11 py-8 shadow-lg ring-1 ring-[#e5e7eb]"
+              className="relative isolate mx-auto w-full max-w-[210mm] overflow-hidden bg-white px-11 py-8 shadow-lg ring-1 ring-[#e5e7eb] [&>*:not(.cv-watermark)]:relative [&>*:not(.cv-watermark)]:z-10"
               style={{ fontFamily: "'Times New Roman', Times, serif", color: '#111827' }}
             >
+              <img
+                src={logoUnand}
+                alt=""
+                aria-hidden="true"
+                className="cv-watermark pointer-events-none absolute left-1/2 top-1/2 z-0 w-[42%] max-w-[280px] -translate-x-1/2 -translate-y-1/2 object-contain opacity-[0.055]"
+              />
+
               <div className="mb-2 text-center">
                 <h1 className="text-[26px] font-bold tracking-wide">
                   {displayUser.name}

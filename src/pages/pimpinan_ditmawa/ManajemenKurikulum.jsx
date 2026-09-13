@@ -5,6 +5,7 @@ import ConfirmModal from '../../components/ui/ConfirmModal'
 import Modal from '../../components/ui/Modal'
 import ActionMenu from '../../components/ui/ActionMenu'
 import { TableCard, TableFrame } from '../../components/dashboard/TableFrame'
+import StatusBadge from '../../components/dashboard/StatusBadge'
 import {
   getKurikulum,
   getKurikulumById,
@@ -962,9 +963,10 @@ const handleEditSubCapaian = async () => {
         </div>
 
         {/* Daftar Kurikulum */}
-        <div className="card bg-base-100">
+        <section className="overflow-hidden rounded-md border border-base-300 bg-base-100">
           <div className="border-b border-base-300 px-5 py-4">
-            <h3 className="font-bold text-base-content">Daftar Kurikulum</h3>
+            <h3 className="text-base font-semibold text-base-content">Daftar Kurikulum</h3>
+            <p className="mt-0.5 text-sm text-base-content/60">Pilih kurikulum untuk melihat dan mengelola capaian pembelajarannya.</p>
           </div>
           <div className="divide-y divide-base-300">
             {loading ? (
@@ -978,35 +980,23 @@ const handleEditSubCapaian = async () => {
               return (
                 <div
                   key={kur.id}
-                  className={`flex w-full items-center justify-between px-5 py-4 transition hover:bg-base-200 ${
-                    isActive ? 'bg-base-200' : ''
-                  }`}
+                  className={`flex w-full items-center gap-4 px-5 py-4 ${isActive ? 'bg-base-200' : ''}`}
                 >
                   <button
                     type="button"
                     onClick={() => setActiveKurId(isActive ? null : kur.id)}
-                    className="flex flex-1 flex-col gap-1.5 text-left"
+                    className="min-w-0 flex-1 text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
                   >
-                    <p className="text-sm font-bold text-base-content">{kur.nama}</p>
-                    <p className="text-xs text-base-content/50">
-                      Tahun: {kur.tahun} · {formatCakupanAngkatan(kur, kurikulum)}
-                    </p>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide ${
-                          kur.status === 'aktif'
-                            ? 'bg-green-100 text-green-700'
-                            : kur.status === 'draft'
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-gray-100 text-gray-500'
-                        }`}
-                      >
-                        {kur.status === 'aktif' ? 'Aktif' : kur.status === 'draft' ? 'Draft' : 'Arsip'}
+                    <p className="text-sm font-semibold text-base-content">{kur.nama}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                      <StatusBadge status={kur.status === 'arsip' ? 'diarsipkan' : kur.status} />
+                      <span className="text-xs text-base-content/60">
+                        {kur.tahun} · {formatCakupanAngkatan(kur, kurikulum)}
                       </span>
-                      <span className="flex items-center gap-1 text-xs text-base-content/60">{totalSub} Sub Capaian</span>
                     </div>
+                    <p className="mt-1 text-xs text-base-content/50">{totalSub} sub capaian</p>
                   </button>
-                  <div className="flex shrink-0 items-center gap-3 pl-4">
+                  <div className="flex shrink-0 items-center gap-2">
                     <ToggleSwitch checked={kur.status === 'aktif'} onChange={() => handleToggleStatus(kur.id)} />
                     <ActionMenu
                       items={[
@@ -1035,7 +1025,7 @@ const handleEditSubCapaian = async () => {
               )
             })}
           </div>
-        </div>
+        </section>
 
         {/* Detail kurikulum aktif */}
         {activeKur && (

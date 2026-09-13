@@ -8,6 +8,7 @@ import AjukanKegiatanEksternal from './pages/mahasiswa/AjukanKegiatanEksternal'
 import AjukanKegiatanForm from './pages/mahasiswa/AjukanKegiatanForm'
 import GenerateCV from './pages/mahasiswa/GenerateCV'
 import GenerateSertifikat from './pages/mahasiswa/GenerateSertifikat'
+import SertifikatValidasi from './pages/SertifikatValidasi'
 import PersetujuanDosen from './pages/mahasiswa/PersetujuanDosen'
 import KlaimPoinCapaian from './pages/mahasiswa/KlaimPoinCapaian'
 import RiwayatPoin from './pages/mahasiswa/RiwayatPoin'
@@ -97,6 +98,7 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/cv/public/:token" element={<CvPublic />} />
+        <Route path="/sertifikat/validasi/:token" element={<SertifikatValidasi />} />
 
         {/* Mahasiswa */}
         <Route path="mahasiswa" element={<AuthGuard><RoleGuard allowedRoles={['mahasiswa']}><Outlet /></RoleGuard></AuthGuard>}>

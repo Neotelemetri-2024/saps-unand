@@ -23,7 +23,6 @@ import { getPeranKegiatan } from '../../services/matriksService'
 import { TableCard, TableFrame } from '../../components/dashboard/TableFrame'
 import TambahPesertaModal from '../../components/ui/TambahPesertaModal'
 import {
-  kehadiranFilterBtnClass,
   pesertaResetFilterBtnClass,
   pesertaDownloadBtnClass,
   pesertaImportBtnClass,
@@ -248,11 +247,10 @@ function ManajemenPeserta() {
         <DetailBackButton onClick={() => navigate(-1)} />
 
         <div>
-          <h2 className="text-2xl font-extrabold text-base-content">Manajemen peserta</h2>
-          <p className="mt-1 text-sm text-base-content/60">
-            {kegiatan.nama}
-            {kegiatan.tanggal && ` · ${kegiatan.tanggal}`}
-            {kegiatan.lokasi && ` · ${kegiatan.lokasi}`}
+          <h2 className="text-2xl font-semibold text-base-content">Manajemen Peserta</h2>
+          <p className="mt-1 text-base font-medium text-base-content">{kegiatan.nama}</p>
+          <p className="mt-0.5 text-sm text-base-content/60">
+            {[kegiatan.tanggal, kegiatan.lokasi].filter(Boolean).join(' · ') || 'Detail waktu dan lokasi belum tersedia'}
           </p>
         </div>
 
@@ -273,7 +271,7 @@ function ManajemenPeserta() {
         <TableCard title="Daftar peserta">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-2 lg:flex-1 lg:flex-row lg:items-center">
-              <label className="input input-sm flex-1">
+              <label className="input input-sm w-full lg:flex-1">
                 <Search className="h-4 w-4 shrink-0 opacity-50" />
                 <input
                   type="text"
@@ -282,18 +280,17 @@ function ManajemenPeserta() {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </label>
-              <div className="join">
-                {['semua', 'hadir', 'tidak', 'belum'].map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setFilterKehadiran(f)}
-                    className={kehadiranFilterBtnClass(filterKehadiran === f)}
-                  >
-                    {f === 'semua' ? 'Semua' : f === 'hadir' ? 'Hadir' : f === 'tidak' ? 'Tidak hadir' : 'Belum'}
-                  </button>
-                ))}
-              </div>
+              <select
+                value={filterKehadiran}
+                onChange={(e) => setFilterKehadiran(e.target.value)}
+                aria-label="Filter kehadiran"
+                className="select select-sm w-full sm:w-48"
+              >
+                <option value="semua">Semua kehadiran</option>
+                <option value="hadir">Hadir</option>
+                <option value="tidak">Tidak hadir</option>
+                <option value="belum">Belum diverifikasi</option>
+              </select>
               {(search || filterKehadiran !== 'semua') ? (
                 <button
                   type="button"
