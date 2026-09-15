@@ -74,31 +74,15 @@ app.use('/uploads', (_req, res, next) => {
 
 // ==================== ROUTES ====================
 // Health Check
-app.get('/', (req: Request, res: Response) => {
-  res.json({
-    message: 'Welcome to MyUnand Student Connect API!',
-    version: '2.0.0',
-    schema: '29 tabel — arsitektur baru',
-    endpoints: {
-      auth: '/api/auth',
-      kurikulum: '/api/kurikulum',
-      matriks: '/api/matriks',
-      kegiatan: '/api/kegiatan',
-      partisipasi: '/api/partisipasi',
-      klaim: '/api/klaim',
-      notifikasi: '/api/umum/notifikasi',
-      auditLog: '/api/umum/audit-log',
-      dashboard: '/api/umum/dashboard/{role}',
-      portofolio: '/api/umum/portofolio/{mahasiswaId}',
-    },
-  });
+app.get('/', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok' });
 });
 
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.status(200).send('OK');
 });
 
-app.get('/api/health', (req: Request, res: Response) => {
+app.get('/api/health', (_req: Request, res: Response) => {
   res.status(200).send('OK');
 });
 
@@ -116,8 +100,15 @@ app.get('/cv/public/:token/image.png', getPublicCvImage);
 app.get('/api/mahasiswa/linkedin/callback', linkedinCallback);
 
 // ==================== SWAGGER API DOCS ====================
-const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+// Nonaktifkan Swagger di production agar struktur rute internal tidak terekspos ke publik
+if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_SWAGGER === 'true') {
+  try {
+    const swaggerDocument = YAML.load(path.join(__dirname, 'swagger.yaml'));
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  } catch (err) {
+    console.warn('[Swagger] Gagal memuat dokumentasi swagger:', err);
+  }
+}
 
 // Auth (Login — Publik, tanpa middleware)
 app.use('/api/auth', authRoutes);
