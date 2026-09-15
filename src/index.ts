@@ -55,7 +55,7 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again after 15 minutes',
   standardHeaders: true,
   legacyHeaders: false,
-  validate: { ip: false, xForwardedForHeader: false },
+  validate: false,
   keyGenerator: (req) => {
     const rawIp = req.ip || req.socket.remoteAddress || '127.0.0.1';
     return rawIp.replace(/:\d+$/, '');
@@ -171,10 +171,7 @@ app.use((err: any, req: Request, res: Response, next: any) => {
 
 // ==================== START SERVER ====================
 app.listen(port, () => {
-  console.log(`[server]: MyUnand Student Connect API v2.0`);
-  console.log(`[server]: Running at http://localhost:${port}`);
-  console.log(`[server]: Swagger UI at http://localhost:${port}/api-docs`);
-  console.log(`[server]: Schema: 29 tabel (MySQL)`);
+  console.log(`[server]: SAPS Backend API Server running on port ${port}`);
 
   // Inisialisasi background scheduler untuk sinkronisasi otomatis SIA
   initSiaScheduler();
