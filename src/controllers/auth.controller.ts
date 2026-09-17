@@ -1009,34 +1009,47 @@ export const ssoCallback = async (req: Request, res: Response): Promise<void> =>
         // Pastikan tidak ada data mahasiswa nyasar
         await prisma.mahasiswa.deleteMany({ where: { userId: user.id } });
       } else if (user.peran === 'mahasiswa') {
-        const existingMhsRecord = await prisma.mahasiswa.findUnique({ where: { userId: user.id } });
-        if (!existingMhsRecord) {
-          let nim = username;
-          if (!/^\d{10}$/.test(nim)) {
-            const match = email.match(/^(\d{10})/);
-            if (match) nim = match[1];
+        let nim = username;
+        if (!/^\d{10}$/.test(nim)) {
+          const match = email.match(/^(\d{10})/);
+          if (match) nim = match[1];
+        }
+        nim = nim || `NIM${user.id.toString().padStart(8, '0')}`;
+
+        const existingMhsByUserId = await prisma.mahasiswa.findUnique({ where: { userId: user.id } });
+        
+        if (!existingMhsByUserId) {
+          // Cari berdasarkan NIM terlebih dahulu (mungkin sudah dibuat oleh SIA auto-sync dengan userId dummy/kosong)
+          const existingMhsByNim = await prisma.mahasiswa.findUnique({ where: { nim } });
+          
+          if (existingMhsByNim) {
+            // Jika NIM sudah ada, cukup update userId-nya agar nyambung dengan akun SSO ini
+            await prisma.mahasiswa.update({
+              where: { nim },
+              data: { userId: user.id }
+            });
+          } else {
+            // Jika belum ada sama sekali, buat baru
+            let angkatan = new Date().getFullYear();
+            if (/^\d{2}/.test(nim)) {
+              const prefixYear = parseInt(nim.substring(0, 2), 10);
+              if (prefixYear >= 15 && prefixYear <= 40) angkatan = 2000 + prefixYear;
+            }
+
+            const defaultProdi = await prisma.programStudi.findFirst();
+            const prodiId = defaultProdi?.id || 1;
+            const kurikulumId = await resolveKurikulumIdForAngkatan(angkatan);
+
+            await prisma.mahasiswa.create({
+              data: {
+                userId: user.id,
+                nim,
+                angkatan,
+                prodiId,
+                kurikulumId,
+              },
+            });
           }
-          nim = nim || `NIM${user.id.toString().padStart(8, '0')}`;
-
-          let angkatan = new Date().getFullYear();
-          if (/^\d{2}/.test(nim)) {
-            const prefixYear = parseInt(nim.substring(0, 2), 10);
-            if (prefixYear >= 15 && prefixYear <= 40) angkatan = 2000 + prefixYear;
-          }
-
-          const defaultProdi = await prisma.programStudi.findFirst();
-          const prodiId = defaultProdi?.id || 1;
-          const kurikulumId = await resolveKurikulumIdForAngkatan(angkatan);
-
-          await prisma.mahasiswa.create({
-            data: {
-              userId: user.id,
-              nim,
-              angkatan,
-              prodiId,
-              kurikulumId,
-            },
-          });
         }
       }
     } catch (syncErr) {

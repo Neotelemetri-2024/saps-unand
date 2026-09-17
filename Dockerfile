@@ -29,8 +29,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Install runtime dependencies for Prisma & Canvas/PDF
-RUN apk add --no-cache openssl fontconfig
+# Install runtime dependencies for Prisma & Canvas/PDF & Puppeteer
+RUN apk add --no-cache openssl fontconfig chromium nss freetype harfbuzz ca-certificates ttf-freefont
+
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # Copy node_modules & generated prisma client from builder
 COPY --from=builder /app/node_modules ./node_modules
