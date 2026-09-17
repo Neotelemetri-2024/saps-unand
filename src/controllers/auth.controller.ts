@@ -1070,7 +1070,8 @@ export const ssoCallback = async (req: Request, res: Response): Promise<void> =>
  * Mengarahkan user ke logout Keycloak SSO UNAND
  */
 export const ssoLogout = async (_req: Request, res: Response): Promise<void> => {
-  const postLogoutRedirect = `${FRONTEND_URL}/login`;
-  const logoutUrl = `${KEYCLOAK_BASE_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/logout?post_logout_redirect_uri=${encodeURIComponent(postLogoutRedirect)}&client_id=${encodeURIComponent(KEYCLOAK_CLIENT_ID)}`;
+  // Hanya mengirim client_id tanpa post_logout_redirect_uri untuk menghindari error HTTP 400
+  // akibat URL frontend belum didaftarkan di Valid Post Logout Redirect URIs pada Keycloak Admin.
+  const logoutUrl = `${KEYCLOAK_BASE_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/logout?client_id=${encodeURIComponent(KEYCLOAK_CLIENT_ID)}`;
   res.redirect(logoutUrl);
 };
