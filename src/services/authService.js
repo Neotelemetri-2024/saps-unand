@@ -238,7 +238,8 @@ export async function handleSsoLogin(token) {
  */
 export function logout() {
   localStorage.removeItem(USER_STORAGE_KEY)
-  window.location.href = '/login'
+  const backendUrl = import.meta.env.VITE_API_BASE || 'https://api-studentconnect.unand.ac.id'
+  window.location.href = `${backendUrl}/api/auth/sso/logout`
 }
 
 export function getCurrentUser() {
