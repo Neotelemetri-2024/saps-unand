@@ -383,7 +383,7 @@ function AjukanKegiatanForm() {
         isOpen={showKirimConfirm}
         message={
           selectedExistingKegiatan
-            ? `Daftarkan diri Anda ke kegiatan terdaftar "${selectedExistingKegiatan.nama}"?`
+            ? `Apakah Anda yakin ingin bergabung ke kegiatan terdaftar "${selectedExistingKegiatan.nama}"? Pastikan pilihan Anda sudah benar. Jika kegiatan ini sudah disetujui Admin, Anda akan otomatis diarahkan untuk meminta perizinan Dosen PA.`
             : 'Apakah Anda yakin data yang diisi sudah lengkap dan benar? Setelah diajukan, kegiatan ini akan ditinjau oleh Admin Ditmawa terlebih dahulu sebelum Anda dapat meminta perizinan Dosen PA.'
         }
         confirmText={selectedExistingKegiatan ? 'Ya, gabung' : 'Ya, kirim'}
