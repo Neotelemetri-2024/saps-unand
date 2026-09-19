@@ -62,6 +62,7 @@ function AjukanKegiatanForm() {
   const [formData, setFormData] = useState(EMPTY_FORM)
   const [draftId, setDraftId] = useState(draftItem?.id || null)
   const [showKirimConfirm, setShowKirimConfirm] = useState(false)
+  const [showIzinConfirm, setShowIzinConfirm] = useState(false)
   const [kategoriList, setKategoriList] = useState([])
   const [skalaList, setSkalaList] = useState([])
 
@@ -392,6 +393,18 @@ function AjukanKegiatanForm() {
         onCancel={() => setShowKirimConfirm(false)}
       />
 
+      <ConfirmModal
+        isOpen={showIzinConfirm}
+        message="Apakah Anda yakin ingin mengirim permintaan persetujuan partisipasi kegiatan ini kepada Dosen PA Anda? Pastikan Anda benar-benar mengikuti kegiatan ini."
+        confirmText="Ya, minta"
+        cancelText="Batal"
+        onConfirm={() => {
+          setShowIzinConfirm(false)
+          handleMintaPersetujuanDosen()
+        }}
+        onCancel={() => setShowIzinConfirm(false)}
+      />
+
       <SimilarActivityModal
         isOpen={showSimilarModal}
         similarData={similarModalData}
@@ -699,7 +712,7 @@ function AjukanKegiatanForm() {
                   <button
                     type="button"
                     disabled={submittingIzin}
-                    onClick={handleMintaPersetujuanDosen}
+                    onClick={() => setShowIzinConfirm(true)}
                     className="btn btn-primary btn-sm"
                   >
                     {submittingIzin ? 'Mengirim…' : 'Minta persetujuan dosen'}
