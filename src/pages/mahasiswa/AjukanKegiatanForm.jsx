@@ -384,7 +384,7 @@ function AjukanKegiatanForm() {
         message={
           selectedExistingKegiatan
             ? `Daftarkan diri Anda ke kegiatan terdaftar "${selectedExistingKegiatan.nama}"?`
-            : 'Kirim pengajuan kegiatan ini ke Admin Ditmawa untuk ditinjau?'
+            : 'Apakah Anda yakin data yang diisi sudah lengkap dan benar? Setelah diajukan, kegiatan ini akan ditinjau oleh Admin Ditmawa terlebih dahulu sebelum Anda dapat meminta perizinan Dosen PA.'
         }
         confirmText={selectedExistingKegiatan ? 'Ya, gabung' : 'Ya, kirim'}
         cancelText="Batal"
