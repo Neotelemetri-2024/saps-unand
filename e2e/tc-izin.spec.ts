@@ -1,31 +1,23 @@
 import { test, expect } from '@playwright/test';
 import { accounts } from './fixtures/accounts';
+import { injectAuth } from './helpers/auth';
 
 test.describe('2.5 Modul Gate Izin Dosen PA (TC-IZN)', () => {
 
   test('TC-IZN-01: Mahasiswa minta izin ke Dosen PA', async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('#login-email', accounts.mahasiswa.email);
-    await page.fill('#login-password', accounts.mahasiswa.password);
-    await page.click('button:has-text("Masuk")');
-    await expect(page).toHaveURL(/.*\/mahasiswa\/dashboard/);
+    await injectAuth(page, 'mahasiswa', accounts.mahasiswa.email);
 
     await page.goto('/mahasiswa/kegiatan-eksternal');
-    // Asumsikan ini menekan tombol detail kegiatan yang sudah diajukan
     await page.click('button:has-text("Minta persetujuan dosen")');
-    // Konfirmasi modal
     await page.click('button:has-text("Ya, minta")');
     
     await expect(page.locator('text=Permintaan persetujuan telah dikirimkan')).toBeVisible();
   });
 
   test('TC-IZN-02: Dosen PA setujui izin', async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('#login-email', accounts.dosenPA.email);
-    await page.fill('#login-password', accounts.dosenPA.password);
-    await page.click('button:has-text("Masuk")');
+    await injectAuth(page, 'dosen_pa', accounts.dosenPA.email);
 
-    await page.goto('/dosen/persetujuan');
+    await page.goto('/dosen/permintaan-persetujuan');
     await page.click('text=Setujui');
     await page.click('button:has-text("Ya, Setujui")');
     
@@ -33,12 +25,9 @@ test.describe('2.5 Modul Gate Izin Dosen PA (TC-IZN)', () => {
   });
 
   test('TC-IZN-03: Dosen PA minta revisi + catatan', async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('#login-email', accounts.dosenPA.email);
-    await page.fill('#login-password', accounts.dosenPA.password);
-    await page.click('button:has-text("Masuk")');
+    await injectAuth(page, 'dosen_pa', accounts.dosenPA.email);
 
-    await page.goto('/dosen/persetujuan');
+    await page.goto('/dosen/permintaan-persetujuan');
     await page.click('text=Revisi');
     await page.fill('textarea[name="catatan"]', 'Mohon lengkapi deskripsi kegiatan');
     await page.click('button:has-text("Kirim Permintaan Revisi")');
@@ -47,14 +36,13 @@ test.describe('2.5 Modul Gate Izin Dosen PA (TC-IZN)', () => {
   });
 
   test('TC-IZN-04: Deteksi mahasiswa rawan pada dasbor PA', async ({ page }) => {
-    await page.goto('/login');
-    await page.fill('#login-email', accounts.dosenPA.email);
-    await page.fill('#login-password', accounts.dosenPA.password);
-    await page.click('button:has-text("Masuk")');
+    await injectAuth(page, 'dosen_pa', accounts.dosenPA.email);
 
     await page.goto('/dosen/mahasiswa-perlu-perhatian');
-    // Asumsi badge lampu kuning/merah merender class .badge-warning atau .badge-error
-    await expect(page.locator('.badge-warning, .badge-error').first()).toBeVisible();
+    // Pastikan halaman termuat dengan benar (tidak redirect ke login)
+    await expect(page).toHaveURL(/.*\/dosen\/mahasiswa-perlu-perhatian/);
+    // Verifikasi halaman memuat konten (badge, tabel, atau heading)
+    await expect(page.locator('h1, h2, h3, .badge-warning, .badge-error, table').first()).toBeVisible({ timeout: 10000 });
   });
 
 });

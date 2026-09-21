@@ -1,14 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { accounts } from './fixtures/accounts';
+import { injectAuth, injectAuthAndGoto } from './helpers/auth';
 
 test.describe('2.2 Modul Kurikulum & Rubrik Matriks Poin (TC-KUR)', () => {
 
   test.beforeEach(async ({ page }) => {
-    // Login sebagai pimpinan utama/admin ditmawa yang berhak kelola kurikulum
-    await page.goto('/login');
-    await page.fill('#login-email', accounts.adminDitmawa.email);
-    await page.fill('#login-password', accounts.adminDitmawa.password);
-    await page.click('button:has-text("Masuk")');
+    await injectAuth(page, 'admin_ditmawa', accounts.adminDitmawa.email);
     await expect(page).toHaveURL(/.*\/admin_ditmawa\/dashboard/);
   });
 
@@ -25,17 +22,13 @@ test.describe('2.2 Modul Kurikulum & Rubrik Matriks Poin (TC-KUR)', () => {
 
   test('TC-KUR-02: Validasi total bobot sub-capaian != 100%', async ({ page }) => {
     await page.goto('/admin_ditmawa/master-data/kurikulum');
-    // Asumsikan ada fitur edit bobot
-    // Ini disesuaikan dengan UI yang ada
     await page.click('button[title="Edit Bobot Capaian"]');
-    // Set bobot ke 30, 30, 30
     const inputs = await page.$$('input[type="number"]');
     for(let i=0; i<3; i++) {
       if(inputs[i]) await inputs[i].fill('30');
     }
     await page.click('button:has-text("Simpan")');
     
-    // Harus muncul error
     await expect(page.locator('text=Total bobot harus tepat 100%')).toBeVisible();
   });
 
