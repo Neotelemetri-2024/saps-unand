@@ -237,9 +237,17 @@ export async function handleSsoLogin(token) {
  * Mencegah browser diarahkan ke halaman error Keycloak (HTTP 400 'Invalid redirect uri').
  */
 export function logout() {
+  const user = getCurrentUser()
+  const isSso = user?.authProvider === 'sso'
+
   localStorage.removeItem(USER_STORAGE_KEY)
-  const backendUrl = import.meta.env.VITE_API_BASE || 'https://api-studentconnect.unand.ac.id'
-  window.location.href = `${backendUrl}/api/auth/sso/logout`
+  
+  if (isSso) {
+    const backendUrl = import.meta.env.VITE_API_BASE || 'https://api-studentconnect.unand.ac.id'
+    window.location.href = `${backendUrl}/api/auth/sso/logout`
+  } else {
+    window.location.href = '/login'
+  }
 }
 
 export function getCurrentUser() {
