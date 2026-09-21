@@ -142,7 +142,7 @@ function LoginPage() {
           <User className="h-4 w-4 opacity-50" />
           <input
             id="login-email"
-            type="text"
+            type="email"
             value={email}
             onChange={(e) => { setEmail(e.target.value); setErrorMsg('') }}
             placeholder="Masukkan email Anda"

@@ -47,7 +47,7 @@ test.describe('2.1 Modul Autentikasi & Otorisasi RBAC (TC-AUTH)', () => {
 
   test('TC-AUTH-05: Alur login Mock SSO untuk environment dev', async ({ page }) => {
     // Pastikan diarahkan dengan benar ke dashboard jika menembak mock sso
-    const mockSsoUrl = 'http://localhost:3000/api/auth/sso/mock?role=mahasiswa&nim=2411522001';
+    const mockSsoUrl = 'http://localhost:3000/api/auth/sso/mock?role=mahasiswa&nim=2411522001&frontend=http://localhost:5173';
     await page.goto(mockSsoUrl);
     // Karena ini redirect ke frontend dengan token, kita cek apakah mendarat di dashboard
     await expect(page).toHaveURL(/.*\/mahasiswa\/dashboard/);

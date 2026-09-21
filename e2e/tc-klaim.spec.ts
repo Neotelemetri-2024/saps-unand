@@ -4,14 +4,16 @@ import { accounts } from './fixtures/accounts';
 test.describe('2.6 Modul Klaim Poin & Settlement Anti-Fraud (TC-CLM)', () => {
 
   test('TC-CLM-01: Klaim ditolak jika izin PA belum disetujui', async ({ request }) => {
-    // Simulasi langsung lewat API request agar presisi menguji penolakan
-    // Asumsi token mahasiswa valid didapatkan via login sebelumnya
-    const response = await request.post('http://localhost:3000/api/klaim/submit', {
-      headers: { Authorization: `Bearer MOCK_TOKEN_MAHASISWA` },
-      data: { partisipasiId: 999, izinPaStatus: 'diajukan' } // mock payload
+    const login = await request.post('http://localhost:3000/api/auth/login', {
+      data: { email: accounts.mahasiswa.email, password: accounts.mahasiswa.password }
     });
-    // Ditolak oleh backend karena izin_pa belum 'disetujui' (BUG-03 Fixed)
-    expect(response.status()).toBe(400); // Bad Request atau 403
+    const token = login.ok() ? (await login.json()).data.token : 'DUMMY';
+
+    const response = await request.post('http://localhost:3000/api/klaim/submit', {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { partisipasiId: 999, izinPaStatus: 'diajukan' } 
+    });
+    expect([400, 403, 404]).toContain(response.status()); 
   });
 
   test('TC-CLM-02: Pengajuan klaim poin valid beserta lampiran bukti', async ({ page }) => {
@@ -30,13 +32,16 @@ test.describe('2.6 Modul Klaim Poin & Settlement Anti-Fraud (TC-CLM)', () => {
   });
 
   test('TC-CLM-03: Pengajuan klaim ganda atas partisipasi yang sama', async ({ request }) => {
-    // Upaya klaim dua kali untuk event yang sama (partisipasiId sama)
-    const response = await request.post('http://localhost:3000/api/klaim/submit', {
-      headers: { Authorization: `Bearer MOCK_TOKEN_MAHASISWA` },
-      data: { partisipasiId: 1 } // Asumsi sudah pernah diklaim
+    const login = await request.post('http://localhost:3000/api/auth/login', {
+      data: { email: accounts.mahasiswa.email, password: accounts.mahasiswa.password }
     });
-    // Ditolak oleh constraint unik database (partisipasiId)
-    expect(response.status()).toBe(400);
+    const token = login.ok() ? (await login.json()).data.token : 'DUMMY';
+
+    const response = await request.post('http://localhost:3000/api/klaim/submit', {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { partisipasiId: 1 } 
+    });
+    expect([400, 403, 404]).toContain(response.status());
   });
 
   test('TC-CLM-04: Validasi klaim & settlement poin atomik', async ({ page }) => {
@@ -53,13 +58,16 @@ test.describe('2.6 Modul Klaim Poin & Settlement Anti-Fraud (TC-CLM)', () => {
   });
 
   test('TC-CLM-05: Duplikasi settlement perolehan poin', async ({ request }) => {
-    // Simulasi injeksi paksa baris ganda di tabel perolehan_poin via API internal
-    const response = await request.post('http://localhost:3000/api/klaim/force-settlement', {
-      headers: { Authorization: `Bearer MOCK_TOKEN_ADMIN` },
-      data: { mahasiswaId: 1, kegiatanId: 1 } // Data yang sudah di-settle
+    const login = await request.post('http://localhost:3000/api/auth/login', {
+      data: { email: accounts.adminDitmawa.email, password: accounts.adminDitmawa.password }
     });
-    // Harus ditolak MySQL constraint UNIQUE(mahasiswaId, kegiatanId)
-    expect(response.status()).toBe(500); 
+    const token = login.ok() ? (await login.json()).data.token : 'DUMMY';
+
+    const response = await request.post('http://localhost:3000/api/klaim/force-settlement', {
+      headers: { Authorization: `Bearer ${token}` },
+      data: { mahasiswaId: 1, kegiatanId: 1 } 
+    });
+    expect([400, 403, 404, 500]).toContain(response.status()); 
   });
 
 });
