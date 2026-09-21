@@ -21,40 +21,45 @@ const roleRoutes: Record<string, string> = {
  * thinks the user is logged in. This completely bypasses the backend login API,
  * which is unreliable in the Docker test environment.
  *
- * IMPORTANT: Must call page.goto() AFTER this to trigger the app to read localStorage.
+ * Using addInitScript ensures localStorage is injected on EVERY navigation,
+ * which prevents WebKit from losing the state during fast redirects.
  */
 export async function injectAuth(page: Page, role: string, email: string) {
   const dashboardPath = roleRoutes[role] || '/mahasiswa/dashboard';
 
-  // Navigate to a page on the origin first so we can set localStorage
-  await page.goto('/login', { waitUntil: 'domcontentloaded' });
+  const user = {
+    id: 999,
+    email: email,
+    nama: `Test User (${role})`,
+    peran: role,
+    jabatan: null,
+    organisasiId: null,
+    namaOrganisasi: null,
+    tipeOrganisasi: null,
+    kurikulumId: null,
+    kurikulumNama: null,
+    role: role,
+    userRole: role,
+    token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6OTk5LCJyb2xlIjoiJytyb2xlKyciLCJlbWFpbCI6IicrZW1haWwrJyJ9.fake-sig',
+    authProvider: 'internal',
+  };
 
-  // Inject the auth session directly into localStorage
-  await page.evaluate(
-    ({ role, email }) => {
-      const user = {
-        id: 999,
-        email: email,
-        nama: `Test User (${role})`,
-        peran: role,
-        jabatan: null,
-        organisasiId: null,
-        namaOrganisasi: null,
-        tipeOrganisasi: null,
-        kurikulumId: null,
-        kurikulumNama: null,
-        role: role,
-        userRole: role,
-        token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6OTk5LCJyb2xlIjoiJytyb2xlKyciLCJlbWFpbCI6IicrZW1haWwrJyJ9.fake-sig',
-        authProvider: 'internal',
-      };
-      localStorage.setItem('saps_current_user', JSON.stringify(user));
-    },
-    { role, email }
-  );
+  // 1. Inject into every future navigation on this page context
+  await page.addInitScript((userData) => {
+    window.localStorage.setItem('saps_current_user', userData);
+  }, JSON.stringify(user));
 
-  // Now navigate to the dashboard — the AuthGuard will read localStorage and allow access
-  await page.goto(dashboardPath, { waitUntil: 'domcontentloaded' });
+  // 2. Also set it right now if we are already on a page (to be safe)
+  try {
+    await page.evaluate((userData) => {
+      localStorage.setItem('saps_current_user', userData);
+    }, JSON.stringify(user));
+  } catch (e) {
+    // Ignore if not on a page yet
+  }
+
+  // 3. Navigate to the target page directly
+  await page.goto(dashboardPath);
 }
 
 /**
@@ -62,5 +67,5 @@ export async function injectAuth(page: Page, role: string, email: string) {
  */
 export async function injectAuthAndGoto(page: Page, role: string, email: string, targetPath: string) {
   await injectAuth(page, role, email);
-  await page.goto(targetPath, { waitUntil: 'domcontentloaded' });
+  await page.goto(targetPath);
 }
