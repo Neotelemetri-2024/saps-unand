@@ -7,8 +7,8 @@ test.describe('2.1 Modul Autentikasi & Otorisasi RBAC (TC-AUTH)', () => {
     // Kita uji satu peran (Mahasiswa) sebagai perwakilan di sini untuk smoke test 
     // Di suite lengkap, kita bisa melooping Object.values(accounts)
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.mahasiswa.email);
-    await page.fill('input[type="password"]', accounts.mahasiswa.password);
+    await page.fill('#login-email', accounts.mahasiswa.email);
+    await page.fill('#login-password', accounts.mahasiswa.password);
     await page.click('button:has-text("Masuk")');
     
     // Pastikan di-redirect ke dashboard yang benar
@@ -17,8 +17,8 @@ test.describe('2.1 Modul Autentikasi & Otorisasi RBAC (TC-AUTH)', () => {
 
   test('TC-AUTH-02: Login dengan kata sandi salah', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.mahasiswa.email);
-    await page.fill('input[type="password"]', 'wrongpass123');
+    await page.fill('#login-email', accounts.mahasiswa.email);
+    await page.fill('#login-password', 'wrongpass123');
     await page.click('button:has-text("Masuk")');
     
     // Pastikan muncul notifikasi / teks error
@@ -34,8 +34,8 @@ test.describe('2.1 Modul Autentikasi & Otorisasi RBAC (TC-AUTH)', () => {
   test('TC-AUTH-04: Pelanggaran hak akses role (Role Guard)', async ({ page }) => {
     // Login sebagai mahasiswa
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.mahasiswa.email);
-    await page.fill('input[type="password"]', accounts.mahasiswa.password);
+    await page.fill('#login-email', accounts.mahasiswa.email);
+    await page.fill('#login-password', accounts.mahasiswa.password);
     await page.click('button:has-text("Masuk")');
     await expect(page).toHaveURL(/.*\/mahasiswa\/dashboard/);
 

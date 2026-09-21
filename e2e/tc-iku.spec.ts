@@ -5,8 +5,8 @@ test.describe('2.7 Modul Monitoring IKU 3 Kemdiktisaintek (TC-IKU)', () => {
 
   test('TC-IKU-01: Agregasi KPI IKU 3 se-Universitas Andalas', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.pimpinanUtama.email);
-    await page.fill('input[type="password"]', accounts.pimpinanUtama.password);
+    await page.fill('#login-email', accounts.pimpinanUtama.email);
+    await page.fill('#login-password', accounts.pimpinanUtama.password);
     await page.click('button:has-text("Masuk")');
     await expect(page).toHaveURL(/.*\/pimpinan_utama\/dashboard/);
 
@@ -19,8 +19,8 @@ test.describe('2.7 Modul Monitoring IKU 3 Kemdiktisaintek (TC-IKU)', () => {
 
   test('TC-IKU-02: Isolasi data tenancy fakultas', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.adminFakultas.email);
-    await page.fill('input[type="password"]', accounts.adminFakultas.password);
+    await page.fill('#login-email', accounts.adminFakultas.email);
+    await page.fill('#login-password', accounts.adminFakultas.password);
     await page.click('button:has-text("Masuk")');
 
     await page.goto('/admin_fakultas/iku3/dashboard');
@@ -33,8 +33,8 @@ test.describe('2.7 Modul Monitoring IKU 3 Kemdiktisaintek (TC-IKU)', () => {
 
   test('TC-IKU-03: Pembaruan target tahunan/triwulan IKU 3', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.pimpinanDitmawa.email);
-    await page.fill('input[type="password"]', accounts.pimpinanDitmawa.password);
+    await page.fill('#login-email', accounts.pimpinanDitmawa.email);
+    await page.fill('#login-password', accounts.pimpinanDitmawa.password);
     await page.click('button:has-text("Masuk")');
 
     await page.goto('/pimpinan_ditmawa/pengaturan-iku3');
@@ -46,8 +46,8 @@ test.describe('2.7 Modul Monitoring IKU 3 Kemdiktisaintek (TC-IKU)', () => {
 
   test('TC-IKU-04: Ekspor laporan eksekutif spreadsheet Excel', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.pimpinanUtama.email);
-    await page.fill('input[type="password"]', accounts.pimpinanUtama.password);
+    await page.fill('#login-email', accounts.pimpinanUtama.email);
+    await page.fill('#login-password', accounts.pimpinanUtama.password);
     await page.click('button:has-text("Masuk")');
 
     await page.goto('/pimpinan_utama/laporan');

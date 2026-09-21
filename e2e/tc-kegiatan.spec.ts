@@ -5,8 +5,8 @@ test.describe('2.3 Modul Manajemen Kegiatan & Dual-Stage Approval (TC-KEG)', () 
 
   test('TC-KEG-01: Mahasiswa mengajukan kegiatan eksternal mandiri', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.mahasiswa.email);
-    await page.fill('input[type="password"]', accounts.mahasiswa.password);
+    await page.fill('#login-email', accounts.mahasiswa.email);
+    await page.fill('#login-password', accounts.mahasiswa.password);
     await page.click('button:has-text("Masuk")');
     await expect(page).toHaveURL(/.*\/mahasiswa\/dashboard/);
 
@@ -26,8 +26,8 @@ test.describe('2.3 Modul Manajemen Kegiatan & Dual-Stage Approval (TC-KEG)', () 
   test('TC-KEG-02: Admin Ditmawa memverifikasi kegiatan & alokasi capaian', async ({ page }) => {
     // Login Admin
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.adminDitmawa.email);
-    await page.fill('input[type="password"]', accounts.adminDitmawa.password);
+    await page.fill('#login-email', accounts.adminDitmawa.email);
+    await page.fill('#login-password', accounts.adminDitmawa.password);
     await page.click('button:has-text("Masuk")');
 
     await page.goto('/admin_ditmawa/verifikasi-kegiatan');
@@ -44,8 +44,8 @@ test.describe('2.3 Modul Manajemen Kegiatan & Dual-Stage Approval (TC-KEG)', () 
 
   test('TC-KEG-03: Pimpinan Ditmawa memberikan approval akhir kegiatan', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.pimpinanDitmawa.email);
-    await page.fill('input[type="password"]', accounts.pimpinanDitmawa.password);
+    await page.fill('#login-email', accounts.pimpinanDitmawa.email);
+    await page.fill('#login-password', accounts.pimpinanDitmawa.password);
     await page.click('button:has-text("Masuk")');
 
     await page.goto('/pimpinan_ditmawa/persetujuan-kegiatan');
@@ -59,8 +59,8 @@ test.describe('2.3 Modul Manajemen Kegiatan & Dual-Stage Approval (TC-KEG)', () 
     // Skenario di mana operator membuat kegiatan internal lalu mencoba memverifikasinya sendiri
     // Backend akan menolak dengan 403 Forbidden
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.operatorUKM.email);
-    await page.fill('input[type="password"]', accounts.operatorUKM.password);
+    await page.fill('#login-email', accounts.operatorUKM.email);
+    await page.fill('#login-password', accounts.operatorUKM.password);
     await page.click('button:has-text("Masuk")');
 
     await page.goto('/operator_ukm/kegiatan-internal');

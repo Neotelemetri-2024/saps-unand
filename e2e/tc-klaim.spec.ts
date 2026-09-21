@@ -18,8 +18,8 @@ test.describe('2.6 Modul Klaim Poin & Settlement Anti-Fraud (TC-CLM)', () => {
 
   test('TC-CLM-02: Pengajuan klaim poin valid beserta lampiran bukti', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.mahasiswa.email);
-    await page.fill('input[type="password"]', accounts.mahasiswa.password);
+    await page.fill('#login-email', accounts.mahasiswa.email);
+    await page.fill('#login-password', accounts.mahasiswa.password);
     await page.click('button:has-text("Masuk")');
 
     await page.goto('/mahasiswa/klaim-poin/tambah');
@@ -46,8 +46,8 @@ test.describe('2.6 Modul Klaim Poin & Settlement Anti-Fraud (TC-CLM)', () => {
 
   test('TC-CLM-04: Validasi klaim & settlement poin atomik', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.adminDitmawa.email);
-    await page.fill('input[type="password"]', accounts.adminDitmawa.password);
+    await page.fill('#login-email', accounts.adminDitmawa.email);
+    await page.fill('#login-password', accounts.adminDitmawa.password);
     await page.click('button:has-text("Masuk")');
 
     await page.goto('/admin_ditmawa/verifikasi-klaim');

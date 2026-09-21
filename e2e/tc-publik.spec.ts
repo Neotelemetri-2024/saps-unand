@@ -5,8 +5,8 @@ test.describe('2.8 Modul Portofolio Karir, CV & Sertifikat Publik (TC-PUB)', () 
 
   test('TC-PUB-01: Penerbitan sertifikat digital', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.mahasiswa.email);
-    await page.fill('input[type="password"]', accounts.mahasiswa.password);
+    await page.fill('#login-email', accounts.mahasiswa.email);
+    await page.fill('#login-password', accounts.mahasiswa.password);
     await page.click('button:has-text("Masuk")');
     await expect(page).toHaveURL(/.*\/mahasiswa\/dashboard/);
 

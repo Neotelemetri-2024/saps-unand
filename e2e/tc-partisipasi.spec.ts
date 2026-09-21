@@ -5,8 +5,8 @@ test.describe('2.4 Modul Partisipasi & Presensi Kehadiran (TC-PRT)', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.mahasiswa.email);
-    await page.fill('input[type="password"]', accounts.mahasiswa.password);
+    await page.fill('#login-email', accounts.mahasiswa.email);
+    await page.fill('#login-password', accounts.mahasiswa.password);
     await page.click('button:has-text("Masuk")');
     await expect(page).toHaveURL(/.*\/mahasiswa\/dashboard/);
   });
@@ -33,8 +33,8 @@ test.describe('2.4 Modul Partisipasi & Presensi Kehadiran (TC-PRT)', () => {
   test('TC-PRT-03: Impor presensi kehadiran via file spreadsheet', async ({ page }) => {
     // Pindah role ke admin/operator untuk upload file
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.operatorUKM.email);
-    await page.fill('input[type="password"]', accounts.operatorUKM.password);
+    await page.fill('#login-email', accounts.operatorUKM.email);
+    await page.fill('#login-password', accounts.operatorUKM.password);
     await page.click('button:has-text("Masuk")');
 
     await page.goto('/operator_ukm/kegiatan-internal');

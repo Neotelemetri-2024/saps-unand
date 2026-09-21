@@ -6,8 +6,8 @@ test.describe('2.2 Modul Kurikulum & Rubrik Matriks Poin (TC-KUR)', () => {
   test.beforeEach(async ({ page }) => {
     // Login sebagai pimpinan utama/admin ditmawa yang berhak kelola kurikulum
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.adminDitmawa.email);
-    await page.fill('input[type="password"]', accounts.adminDitmawa.password);
+    await page.fill('#login-email', accounts.adminDitmawa.email);
+    await page.fill('#login-password', accounts.adminDitmawa.password);
     await page.click('button:has-text("Masuk")');
     await expect(page).toHaveURL(/.*\/admin_ditmawa\/dashboard/);
   });

@@ -5,8 +5,8 @@ test.describe('2.5 Modul Gate Izin Dosen PA (TC-IZN)', () => {
 
   test('TC-IZN-01: Mahasiswa minta izin ke Dosen PA', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.mahasiswa.email);
-    await page.fill('input[type="password"]', accounts.mahasiswa.password);
+    await page.fill('#login-email', accounts.mahasiswa.email);
+    await page.fill('#login-password', accounts.mahasiswa.password);
     await page.click('button:has-text("Masuk")');
     await expect(page).toHaveURL(/.*\/mahasiswa\/dashboard/);
 
@@ -21,8 +21,8 @@ test.describe('2.5 Modul Gate Izin Dosen PA (TC-IZN)', () => {
 
   test('TC-IZN-02: Dosen PA setujui izin', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.dosenPA.email);
-    await page.fill('input[type="password"]', accounts.dosenPA.password);
+    await page.fill('#login-email', accounts.dosenPA.email);
+    await page.fill('#login-password', accounts.dosenPA.password);
     await page.click('button:has-text("Masuk")');
 
     await page.goto('/dosen/persetujuan');
@@ -34,8 +34,8 @@ test.describe('2.5 Modul Gate Izin Dosen PA (TC-IZN)', () => {
 
   test('TC-IZN-03: Dosen PA minta revisi + catatan', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.dosenPA.email);
-    await page.fill('input[type="password"]', accounts.dosenPA.password);
+    await page.fill('#login-email', accounts.dosenPA.email);
+    await page.fill('#login-password', accounts.dosenPA.password);
     await page.click('button:has-text("Masuk")');
 
     await page.goto('/dosen/persetujuan');
@@ -48,8 +48,8 @@ test.describe('2.5 Modul Gate Izin Dosen PA (TC-IZN)', () => {
 
   test('TC-IZN-04: Deteksi mahasiswa rawan pada dasbor PA', async ({ page }) => {
     await page.goto('/login');
-    await page.fill('input[type="email"]', accounts.dosenPA.email);
-    await page.fill('input[type="password"]', accounts.dosenPA.password);
+    await page.fill('#login-email', accounts.dosenPA.email);
+    await page.fill('#login-password', accounts.dosenPA.password);
     await page.click('button:has-text("Masuk")');
 
     await page.goto('/dosen/mahasiswa-perlu-perhatian');
