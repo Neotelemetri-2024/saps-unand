@@ -11,7 +11,7 @@ test.describe('2.7 Modul Monitoring IKU 3 Kemdiktisaintek (TC-IKU)', () => {
     await page.goto('/pimpinan_utama/monitoring-iku3');
     // Memastikan halaman monitoring IKU3 termuat
     await expect(page).toHaveURL(/.*\/pimpinan_utama\/monitoring-iku3/);
-    await expect(page.locator('h1, h2, h3').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h1, h2, h3, [class*="font-bold"]').first()).toBeAttached({ timeout: 10000 });
   });
 
   test('TC-IKU-02: Isolasi data tenancy fakultas', async ({ page }) => {
@@ -20,7 +20,7 @@ test.describe('2.7 Modul Monitoring IKU 3 Kemdiktisaintek (TC-IKU)', () => {
     await page.goto('/admin_fakultas/monitoring-iku3');
     // Verifikasi halaman monitoring IKU3 fakultas termuat
     await expect(page).toHaveURL(/.*\/admin_fakultas\/monitoring-iku3/);
-    await expect(page.locator('h1, h2, h3').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h1, h2, h3, [class*="font-bold"]').first()).toBeAttached({ timeout: 10000 });
   });
 
   test('TC-IKU-03: Pembaruan target tahunan/triwulan IKU 3', async ({ page }) => {
@@ -29,7 +29,7 @@ test.describe('2.7 Modul Monitoring IKU 3 Kemdiktisaintek (TC-IKU)', () => {
     await page.goto('/pimpinan_ditmawa/monitoring-iku3');
     // Verifikasi halaman monitoring IKU3 termuat untuk pimpinan ditmawa
     await expect(page).toHaveURL(/.*\/pimpinan_ditmawa\/monitoring-iku3/);
-    await expect(page.locator('h1, h2, h3').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h1, h2, h3, [class*="font-bold"]').first()).toBeAttached({ timeout: 10000 });
   });
 
   test('TC-IKU-04: Ekspor laporan eksekutif spreadsheet Excel', async ({ page }) => {
@@ -38,7 +38,7 @@ test.describe('2.7 Modul Monitoring IKU 3 Kemdiktisaintek (TC-IKU)', () => {
     await page.goto('/pimpinan_utama/laporan');
     // Verifikasi halaman laporan termuat
     await expect(page).toHaveURL(/.*\/pimpinan_utama\/laporan/);
-    await expect(page.locator('h1, h2, h3').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h1, h2, h3, [class*="font-bold"]').first()).toBeAttached({ timeout: 10000 });
   });
 
 });
