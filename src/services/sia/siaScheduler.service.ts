@@ -54,6 +54,14 @@ export function initSiaScheduler(): void {
     try {
       const results = await syncAll();
       console.log(`[SIA Scheduler] Auto-sync selesai sukses pada ${new Date().toISOString()}. Total entitas: ${results.length}`);
+
+      // Bersihkan dan gabungkan akun Dosen PA yang ganda karena NIK SSO
+      try {
+        const { autoMergeDuplicateDosen } = await import('./dosenMerge.service');
+        await autoMergeDuplicateDosen();
+      } catch (mergeErr: any) {
+        console.error(`[SIA Scheduler] Gagal menjalankan autoMergeDuplicateDosen: ${mergeErr.message}`);
+      }
     } catch (err: any) {
       // Tangani timeout atau koneksi putus secara aman tanpa membuat server crash
       console.warn(`[SIA Scheduler] Auto-sync dilewati/gagal (jaringan kampus/API SIA offline): ${err.message}`);
