@@ -586,7 +586,19 @@ export async function syncDosenPA(): Promise<SyncResult> {
               }
             }
 
-            const existingUser = await prisma.user.findUnique({ where: { email } });
+            const orConditions: any[] = [{ email }];
+            if (nip) {
+              orConditions.push({ dosen: { nidn: nip } });
+              orConditions.push({ staff: { nip: nip } });
+            }
+            if (nidn) {
+              orConditions.push({ dosen: { nidn: nidn } });
+            }
+
+            const existingUser = await prisma.user.findFirst({ 
+              where: { OR: orConditions },
+              include: { dosen: true }
+            });
 
             if (existingUser) {
               if (existingUser.nama !== namaLengkap) {
@@ -718,10 +730,12 @@ export async function syncMahasiswa(options?: SyncMahasiswaOptions): Promise<Syn
     }
 
     // Preload Dosen PA dari tabel DOSEN (bukan hanya tabel User) agar menjamin Foreign Key valid
+    // Preload Dosen PA dari tabel DOSEN dan STAFF agar NIP dari SSO terdeteksi
     if (siaDosenNipToSapsUserId.size === 0) {
       const allDosenList = await prisma.dosen.findMany({
         select: {
           userId: true,
+          nidn: true,
           user: { select: { email: true } },
         },
       });
@@ -730,6 +744,16 @@ export async function syncMahasiswa(options?: SyncMahasiswaOptions): Promise<Syn
           const nip = d.user.email.split('@')[0];
           if (nip) siaDosenNipToSapsUserId.set(nip, d.userId);
         }
+        if (d.nidn) {
+          siaDosenNipToSapsUserId.set(d.nidn, d.userId);
+        }
+      }
+      
+      const allStaffList = await prisma.staff.findMany({
+        select: { userId: true, nip: true }
+      });
+      for (const s of allStaffList) {
+        if (s.nip) siaDosenNipToSapsUserId.set(s.nip, s.userId);
       }
     }
 
@@ -882,14 +906,20 @@ export async function syncMahasiswa(options?: SyncMahasiswaOptions): Promise<Syn
               if (siaDosenNipToSapsUserId.has(dosenPaNip)) {
                 dosenPaId = siaDosenNipToSapsUserId.get(dosenPaNip)!;
               } else {
-                // Cari langsung ke tabel Dosen (menjamin Foreign Key valid)
-                const dosenRecord = await prisma.dosen.findFirst({
-                  where: { user: { email: `${dosenPaNip}@dosen.unand.ac.id` } },
-                  select: { userId: true },
+                // Cari langsung ke database menggunakan kombinasi email palsu, nidn, dan nip staff
+                const dosenRecord = await prisma.user.findFirst({
+                  where: { 
+                    OR: [
+                      { email: `${dosenPaNip}@dosen.unand.ac.id` },
+                      { dosen: { nidn: dosenPaNip } },
+                      { staff: { nip: dosenPaNip } }
+                    ]
+                  },
+                  select: { id: true },
                 });
                 if (dosenRecord) {
-                  dosenPaId = dosenRecord.userId;
-                  siaDosenNipToSapsUserId.set(dosenPaNip, dosenRecord.userId);
+                  dosenPaId = dosenRecord.id;
+                  siaDosenNipToSapsUserId.set(dosenPaNip, dosenRecord.id);
                 }
               }
             }
