@@ -239,6 +239,7 @@ model Mahasiswa {
 
   @@index([angkatan])
   @@index([kurikulumId])
+  @@index([dosenPaId])
   @@map("mahasiswa")
 }
 
