@@ -19,17 +19,11 @@ const betaUsers = [
   // Sri Wahyuni's students
   { email: '2410811001@student.unand.ac.id', nama: 'Rizky Pratama', peran: 'mahasiswa', nim: '2410811001', dosenEmail: 'dosen.sri@unand.ac.id', prodi: 'Ilmu Komunikasi' },
   { email: '2410211001@student.unand.ac.id', nama: 'Siti Nurhaliza', peran: 'mahasiswa', nim: '2410211001', dosenEmail: 'dosen.sri@unand.ac.id', prodi: 'Agroteknologi' },
-  { email: '2410811002@student.unand.ac.id', nama: 'Budi Santoso', peran: 'mahasiswa', nim: '2410811002', dosenEmail: 'dosen.sri@unand.ac.id', prodi: 'Ilmu Komunikasi' },
-
-  // ================= OPERATOR & ADMIN =================
-  { email: 'operator.neotelemetri@unand.ac.id', nama: 'Operator UKM Neo Telemetri', peran: 'operator_ormawa' },
-  { email: 'BEM.UNAND@unand.ac.id', nama: 'Operator BEM KM FTI', peran: 'operator_ormawa' },
-  { email: 'admin.ditmawa@unand.ac.id', nama: 'Ahmad Fauzi, S.Kom.', peran: 'admin_ditmawa' },
-  { email: 'pimpinan.ditmawa@unand.ac.id', nama: 'Dr. Ir. Insannul Kamil, M.Eng.', peran: 'pimpinan_ditmawa' },
+  { email: '2410811002@student.unand.ac.id', nama: 'Budi Santoso', peran: 'mahasiswa', nim: '2410811002', dosenEmail: 'dosen.sri@unand.ac.id', prodi: 'Ilmu Komunikasi' }
 ];
 
 const run = async () => {
-  console.log('🚀 Memulai pembuatan SET LENGKAP Akun Beta Testing (Sesuai PDF)...');
+  console.log('🚀 Memulai pembuatan Akun Beta Testing (HANYA Dosen PA dan Mahasiswa Sesuai PDF)...');
 
   try {
     for (const data of betaUsers) {
@@ -81,14 +75,9 @@ const run = async () => {
         });
         console.log(`🎓 Mahasiswa Siap: ${user.nama} (Terhubung ke ${data.dosenEmail})`);
       }
-      
-      // Profil admin/operator tidak wajib diisi relasi ketat untuk login basic
-      if (['operator_ormawa', 'admin_ditmawa', 'pimpinan_ditmawa'].includes(data.peran)) {
-          console.log(`🛡️ Admin/Operator Siap: ${user.nama}`);
-      }
     }
 
-    console.log('✅ SEMUA AKUN DARI PDF BERHASIL DIBUAT/DIPERBARUI!');
+    console.log('✅ SEMUA AKUN DOSEN PA & MAHASISWA DARI PDF BERHASIL DIBUAT/DIPERBARUI!');
   } catch (error) {
     console.error('❌ Terjadi kesalahan:', error);
   } finally {
