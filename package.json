@@ -20,6 +20,7 @@
     "merge:dosen": "node dist/scripts/mergeDuplicateDosen.js",
     "merge:dosen:dev": "tsx src/scripts/mergeDuplicateDosen.ts",
     "seed:beta": "tsx src/scripts/seed-beta.ts",
+    "generate:beta": "tsx src/scripts/generate-beta-accounts.ts",
     "clean:sia": "node dist/scripts/cleanSiaData.js",
     "clean:pascasarjana": "node dist/scripts/cleanPascasarjana.js",
     "fix:kurikulum": "node dist/scripts/fixKurikulumMahasiswa.js",
