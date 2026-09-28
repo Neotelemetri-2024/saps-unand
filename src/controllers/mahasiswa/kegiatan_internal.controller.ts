@@ -93,6 +93,11 @@ export const getKatalogKegiatanInternal = async (req: Request, res: Response, ne
         statusPendaftaran = partisipasi.status;
       }
 
+      let statusKegiatan = 'Berlangsung';
+      if (kg.tanggalSelesai && new Date(kg.tanggalSelesai) < new Date()) {
+        statusKegiatan = 'Berakhir';
+      }
+
       return {
         id: kg.id,
         nama: kg.nama,
@@ -108,6 +113,7 @@ export const getKatalogKegiatanInternal = async (req: Request, res: Response, ne
         jumlahPendaftar,
         tanpaPersetujuanPa: kg.tanpaPersetujuanPa,
         statusPendaftaran,
+        statusKegiatan,
         sudahDaftar: !!partisipasi,
         partisipasiId: partisipasi?.id?.toString() || null,
       };
@@ -208,6 +214,7 @@ export const getDetailKegiatanInternal = async (req: Request, res: Response, nex
         jumlahPendaftar,
         tanpaPersetujuanPa: kg.tanpaPersetujuanPa,
         statusPendaftaran: partisipasi?.status || 'belum_daftar',
+        statusKegiatan: kg.tanggalSelesai && new Date(kg.tanggalSelesai) < new Date() ? 'Berakhir' : 'Berlangsung',
         sudahDaftar: !!partisipasi,
         partisipasiId: partisipasi?.id?.toString() || null,
         izinPA: partisipasi?.izinPA?.[0] ? {
@@ -290,83 +297,28 @@ export const daftarKegiatanInternal = async (req: Request, res: Response, next: 
       }
     }
 
-    // 4. Tentukan apakah perlu izin PA
-    const butuhIzinPA = !kegiatan.tanpaPersetujuanPa;
-
-    if (butuhIzinPA) {
-      // Cek apakah mahasiswa punya Dosen PA
-      const mahasiswa = await prisma.mahasiswa.findUnique({
-        where: { userId: BigInt(userId) },
-        include: { user: { select: { nama: true } } },
-      });
-
-      if (!mahasiswa || !mahasiswa.dosenPaId) {
-        return res.status(400).json({ success: false, message: 'Anda belum memiliki Dosen PA. Silakan hubungi admin.' });
-      }
-
-      // 5a. Buat partisipasi + izin PA dalam satu transaksi
-      const result = await prisma.$transaction(async (tx: any) => {
-        const partisipasi = await tx.partisipasi.create({
-          data: {
-            kegiatanId,
-            mahasiswaId: BigInt(userId),
-            status: 'menunggu_izin_pa',
-          },
-        });
-
-        const izin = await tx.izinPA.create({
-          data: {
-            partisipasiId: partisipasi.id,
-            dosenPaId: mahasiswa.dosenPaId,
-            status: 'diajukan',
-          },
-        });
-
-        return { partisipasi, izin, mahasiswa };
-      });
-
-      // Kirim notifikasi ke Dosen PA
-      try {
-        await NotifikasiService.kirim({
-          userId: result.mahasiswa.dosenPaId!,
-          judul: 'Permohonan Izin Kegiatan Internal',
-          isi: `${result.mahasiswa.user.nama} mendaftar kegiatan internal "${kegiatan.nama}" dan membutuhkan persetujuan Anda.`,
-          refType: 'izin_pa',
-          refId: result.izin.id,
-        });
-      } catch (err) {
-        console.error('[daftarKegiatanInternal] Gagal kirim notifikasi:', err);
-      }
-
-      return res.status(201).json({
-        success: true,
-        message: 'Pendaftaran berhasil! Menunggu persetujuan Dosen PA.',
-        data: {
-          partisipasiId: result.partisipasi.id.toString(),
-          status: 'menunggu_izin_pa',
-          butuhIzinPA: true,
-        },
-      });
-    } else {
-      // 5b. Tanpa izin PA → langsung terdaftar
-      const partisipasi = await prisma.partisipasi.create({
-        data: {
-          kegiatanId,
-          mahasiswaId: BigInt(userId),
-          status: 'terdaftar',
-        },
-      });
-
-      return res.status(201).json({
-        success: true,
-        message: 'Pendaftaran berhasil! Anda langsung terdaftar.',
-        data: {
-          partisipasiId: partisipasi.id.toString(),
-          status: 'terdaftar',
-          butuhIzinPA: false,
-        },
-      });
+    // Cek apakah kegiatan sudah berakhir
+    if (kegiatan.tanggalSelesai && new Date(kegiatan.tanggalSelesai) < new Date()) {
+      return res.status(400).json({ success: false, message: 'Kegiatan sudah berakhir, tidak dapat mendaftar lagi.' });
     }
+
+    // 4. Mendaftar (Tanpa butuh Izin PA saat registrasi)
+    const partisipasi = await prisma.partisipasi.create({
+      data: {
+        kegiatanId,
+        mahasiswaId: BigInt(userId),
+        status: 'terdaftar',
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: 'Pendaftaran berhasil! Anda langsung terdaftar.',
+      data: {
+        partisipasiId: partisipasi.id.toString(),
+        status: 'terdaftar',
+      },
+    });
   } catch (error: any) {
     if (error.code === 'P2002') {
       return res.status(400).json({ success: false, message: 'Anda sudah terdaftar pada kegiatan ini.' });
