@@ -231,7 +231,7 @@ export default function KatalogKegiatanInternal() {
           <div className="overflow-x-auto">
             <table className="table table-sm">
               <thead>
-                <tr className="bg-base-200 text-xs uppercase text-base-content/60">
+                <tr className="bg-primary text-xs font-semibold uppercase tracking-wide text-primary-content">
                   <th className="w-10">No</th>
                   <th>Kegiatan</th>
                   <th>Kategori</th>
