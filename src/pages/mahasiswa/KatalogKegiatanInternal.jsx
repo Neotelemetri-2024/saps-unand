@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Calendar, MapPin, Users, ArrowRight, ChevronLeft, ChevronRight, Info, X, CheckCircle, Clock, XCircle, AlertCircle, MoreHorizontal } from 'lucide-react'
+import { Search, Calendar, MapPin, Users, ArrowRight, ChevronLeft, ChevronRight, Info, X, CheckCircle, Clock, XCircle, AlertCircle, MoreVertical, Eye, ClipboardEdit } from 'lucide-react'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
 import { getCurrentUser } from '../../services/authService'
 import { get, post, del } from '../../services/apiClient'
@@ -184,15 +184,19 @@ export default function KatalogKegiatanInternal() {
                         <td className="text-center">
                           <div className="dropdown dropdown-end">
                             <label tabIndex={0} className="btn btn-ghost btn-xs btn-circle m-1">
-                              <MoreHorizontal className="h-4 w-4" />
+                              <MoreVertical className="h-4 w-4" />
                             </label>
-                            <ul tabIndex={0} className="dropdown-content menu rounded-box z-[1] w-32 bg-base-100 p-2 shadow">
+                            <ul tabIndex={0} className="dropdown-content menu rounded-box z-[1] w-36 bg-base-100 p-2 shadow">
                               <li>
-                                <button onClick={() => openDetail(kg.id)} className="text-xs">Detail</button>
+                                <button onClick={() => openDetail(kg.id)} className="text-xs text-primary font-medium hover:bg-primary/10">
+                                  <Eye className="h-4 w-4" /> Detail
+                                </button>
                               </li>
                               {bisaDaftar && kg.statusKegiatan === 'Berlangsung' && (
                                 <li>
-                                  <button onClick={() => handleDaftar(kg.id, kg.nama)} disabled={actionLoading} className="text-xs text-primary">Daftar</button>
+                                  <button onClick={() => handleDaftar(kg.id, kg.nama)} disabled={actionLoading} className="text-xs text-info font-medium hover:bg-info/10">
+                                    <ClipboardEdit className="h-4 w-4" /> Daftar
+                                  </button>
                                 </li>
                               )}
                             </ul>
