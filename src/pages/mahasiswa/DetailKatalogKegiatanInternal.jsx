@@ -202,7 +202,7 @@ function DetailKatalogKegiatanInternal() {
             status={kegiatan.statusKegiatan}
           />
           <div className="flex gap-2">
-            {!kegiatan.sudahDaftar && (kegiatan.sisaKuota === null || kegiatan.sisaKuota > 0) && (
+            {!kegiatan.sudahDaftar && kegiatan.statusKegiatan === 'Berlangsung' && (kegiatan.sisaKuota === null || kegiatan.sisaKuota > 0) && (
               <button 
                 onClick={handleDaftar} 
                 disabled={actionLoading}
@@ -232,7 +232,7 @@ function DetailKatalogKegiatanInternal() {
           <InfoRow label="Skala" value={kegiatan.skala} />
           <InfoRow label="Tanggal Pelaksanaan" value={tanggalPelaksanaan} />
           <InfoRow label="Lokasi" value={kegiatan.lokasi || '-'} />
-          <InfoRow label="Izin Dosen PA" value={kegiatan.tanpaPersetujuanPa ? 'Tidak Diperlukan' : 'Diperlukan (Saat Klaim Poin)'} />
+          <InfoRow label="Izin Dosen PA" value={kegiatan.tanpaPersetujuanPa ? 'Tidak Diperlukan' : 'Diperlukan'} />
           <InfoRow label="Kuota" value={kuota} />
           {kegiatan.deskripsi && kegiatan.deskripsi !== '-' && (
             <InfoRow label="Deskripsi" value={kegiatan.deskripsi} multiline />
