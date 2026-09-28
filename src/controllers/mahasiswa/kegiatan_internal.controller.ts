@@ -273,7 +273,7 @@ export const daftarKegiatanInternal = async (req: Request, res: Response, next: 
       const jumlahPendaftar = await prisma.partisipasi.count({
         where: {
           kegiatanId,
-          status: { in: ['terdaftar', 'menunggu_izin_pa', 'disetujui_pa', 'hadir', 'selesai'] as any },
+          status: { in: ['terdaftar', 'menunggu_izin_pa', 'disetujui_pa', 'hadir'] as any },
         },
       });
 
