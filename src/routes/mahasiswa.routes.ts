@@ -14,6 +14,12 @@ import {
 } from '../controllers/mahasiswa/kegiatan_eksternal.controller';
 import { getKegiatanTersedia, ajukanKlaimEksternal, getRiwayatKlaimEksternal } from '../controllers/mahasiswa/klaim_eksternal.controller';
 import { getDashboard, getRiwayatPoin, getRiwayatKegiatanInternal, getKurikulumMahasiswa } from '../controllers/mahasiswa/dashboard.controller';
+import {
+  getKatalogKegiatanInternal,
+  getDetailKegiatanInternal,
+  daftarKegiatanInternal,
+  batalkanPendaftaran,
+} from '../controllers/mahasiswa/kegiatan_internal.controller';
 import { authenticateJWT, authorizeRole } from '../middlewares/auth.middleware';
 import { getPrivateCv, generatePublicCvToken } from '../controllers/mahasiswa/cv.controller';
 import { connectLinkedIn, shareCvToLinkedIn, getLinkedInStatus, disconnectLinkedIn } from '../controllers/mahasiswa/linkedin.controller';
@@ -56,6 +62,12 @@ router.get('/riwayat-kegiatan-internal', getRiwayatKegiatanInternal);
 
 // Kurikulum mahasiswa yang sedang login
 router.get('/kurikulum', getKurikulumMahasiswa);
+
+// Katalog & Pendaftaran Kegiatan Internal
+router.get('/kegiatan-internal/katalog', getKatalogKegiatanInternal);
+router.get('/kegiatan-internal/katalog/:id', getDetailKegiatanInternal);
+router.post('/kegiatan-internal/katalog/:id/daftar', daftarKegiatanInternal);
+router.delete('/kegiatan-internal/katalog/:id/daftar', batalkanPendaftaran);
 
 // Izin Dosen PA
 router.post('/izin-pa', ajukanIzinPA);
