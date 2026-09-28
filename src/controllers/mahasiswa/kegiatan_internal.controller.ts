@@ -26,7 +26,7 @@ export const getKatalogKegiatanInternal = async (req: Request, res: Response, ne
     // Build where clause
     const where: any = {
       asal: { in: [...ASAL_INTERNAL] },
-      status: { in: ['terpublikasi', 'disetujui', 'berlangsung'] },
+      status: { in: ['terpublikasi', 'disetujui', 'berlangsung'] as any },
       deletedAt: null,
     };
 
@@ -74,7 +74,7 @@ export const getKatalogKegiatanInternal = async (req: Request, res: Response, ne
       by: ['kegiatanId'],
       where: {
         kegiatanId: { in: kegiatanIds },
-        status: { in: ['terdaftar', 'menunggu_izin_pa', 'disetujui_pa', 'hadir'] },
+        status: { in: ['terdaftar', 'menunggu_izin_pa', 'disetujui_pa', 'hadir'] as any },
       },
       _count: true,
     });
@@ -141,7 +141,8 @@ export const getDetailKegiatanInternal = async (req: Request, res: Response, nex
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
-    const kegiatanId = parseInt(req.params.id);
+    const { id } = req.params;
+    const kegiatanId = parseInt(id);
     if (isNaN(kegiatanId)) {
       return res.status(400).json({ success: false, message: 'ID kegiatan tidak valid' });
     }
@@ -178,7 +179,7 @@ export const getDetailKegiatanInternal = async (req: Request, res: Response, nex
     const jumlahPendaftar = await prisma.partisipasi.count({
       where: {
         kegiatanId,
-        status: { in: ['terdaftar', 'menunggu_izin_pa', 'disetujui_pa', 'hadir'] },
+        status: { in: ['terdaftar', 'menunggu_izin_pa', 'disetujui_pa', 'hadir'] as any },
       },
     });
     const sisaKuota = kg.kuota ? Math.max(0, kg.kuota - jumlahPendaftar) : null;
@@ -233,7 +234,8 @@ export const daftarKegiatanInternal = async (req: Request, res: Response, next: 
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
-    const kegiatanId = parseInt(req.params.id);
+    const { id } = req.params;
+    const kegiatanId = parseInt(id);
     if (isNaN(kegiatanId)) {
       return res.status(400).json({ success: false, message: 'ID kegiatan tidak valid' });
     }
@@ -243,7 +245,7 @@ export const daftarKegiatanInternal = async (req: Request, res: Response, next: 
       where: {
         id: kegiatanId,
         asal: { in: [...ASAL_INTERNAL] },
-        status: { in: ['terpublikasi', 'disetujui', 'berlangsung'] },
+        status: { in: ['terpublikasi', 'disetujui', 'berlangsung'] as any },
         deletedAt: null,
       },
     });
@@ -271,7 +273,7 @@ export const daftarKegiatanInternal = async (req: Request, res: Response, next: 
       const jumlahPendaftar = await prisma.partisipasi.count({
         where: {
           kegiatanId,
-          status: { in: ['terdaftar', 'menunggu_izin_pa', 'disetujui_pa', 'hadir', 'selesai'] },
+          status: { in: ['terdaftar', 'menunggu_izin_pa', 'disetujui_pa', 'hadir', 'selesai'] as any },
         },
       });
 
@@ -379,7 +381,8 @@ export const batalkanPendaftaran = async (req: Request, res: Response, next: Nex
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
-    const kegiatanId = parseInt(req.params.id);
+    const { id } = req.params;
+    const kegiatanId = parseInt(id);
     if (isNaN(kegiatanId)) {
       return res.status(400).json({ success: false, message: 'ID kegiatan tidak valid' });
     }
