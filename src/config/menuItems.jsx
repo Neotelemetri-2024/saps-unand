@@ -32,7 +32,15 @@ export const mahasiswaMenu = [
       { path: '/mahasiswa/klaim-poin', label: 'Klaim Poin Eksternal' },
     ],
   },
-  { path: '/mahasiswa/riwayat-kegiatan-internal', label: 'Kegiatan Internal', icon: <History className="h-4 w-4" /> },
+  {
+    path: '#',
+    label: 'Kegiatan Internal',
+    icon: <History className="h-4 w-4" />,
+    children: [
+      { path: '/mahasiswa/katalog-kegiatan-internal', label: 'Katalog & Pendaftaran' },
+      { path: '/mahasiswa/riwayat-kegiatan-internal', label: 'Riwayat Kegiatan' },
+    ],
+  },
   { path: '/mahasiswa/riwayat-poin', label: 'Riwayat Poin', icon: <Award className="h-4 w-4" /> },
   {
     path: '#',

@@ -69,6 +69,70 @@ function KegiatanCell({ nama, diajukanPada }) {
     </div>
   )
 }
+function KegiatanInternalPreview() {
+  const navigate = useNavigate()
+  const [items, setItems] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    get('/api/mahasiswa/kegiatan-internal/katalog', { page: 1, limit: 5 })
+      .then((res) => setItems(res?.data || []))
+      .catch(() => setItems([]))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return (
+      <TableFrame>
+        <DataTable
+          columns={[
+            { key: '_no', label: 'No' },
+            { key: 'nama', label: 'Kegiatan' },
+            { key: 'kategori', label: 'Kategori' },
+            { key: 'penyelenggara', label: 'Penyelenggara' },
+            { key: 'tanggal', label: 'Tanggal' },
+            { key: 'status', label: 'Status', center: true },
+          ]}
+          data={[]}
+          loading={true}
+          emptyText="Memuat..."
+        />
+      </TableFrame>
+    )
+  }
+
+  return (
+    <TableFrame>
+      <DataTable
+        columns={[
+          { key: '_no', label: 'No' },
+          { key: 'nama', label: 'Kegiatan', render: (row) => (
+            <div className="max-w-[200px]">
+              <p className="truncate text-base-content">{row.nama}</p>
+              <p className="text-xs text-base-content/50">{row.penyelenggara}</p>
+            </div>
+          )},
+          { key: 'kategori', label: 'Kategori' },
+          { key: 'skala', label: 'Skala' },
+          { key: 'tanggal', label: 'Tanggal', render: (row) => formatTanggal(row.tanggalMulai) },
+          { key: 'kuota', label: 'Kuota', center: true, render: (row) => row.kuota ? `${row.sisaKuota}/${row.kuota}` : '∞' },
+          { key: 'aksi', label: 'Aksi', center: true, render: (row) => (
+            <button
+              onClick={() => navigate('/mahasiswa/katalog-kegiatan-internal')}
+              className="btn btn-ghost btn-xs text-primary"
+            >
+              Lihat
+            </button>
+          )},
+        ]}
+        data={items.map((r, i) => ({ ...r, _no: i + 1 }))}
+        loading={false}
+        emptyText="Belum ada kegiatan internal yang tersedia."
+      />
+    </TableFrame>
+  )
+}
+
 const FALLBACK_RADAR = [
   { label: 'Fondasi', value: 0 },
   { label: 'Penguatan', value: 0 },
@@ -227,6 +291,14 @@ function MahasiswaDashboard() {
             </div>
           )}
         </div>
+
+        {/* Kegiatan Internal Terbaru (Katalog) */}
+        <TableCard
+          title="Kegiatan Internal Terbaru"
+          headerRight={<LihatSelengkapnyaButton onClick={() => navigate('/mahasiswa/katalog-kegiatan-internal')} />}
+        >
+          <KegiatanInternalPreview />
+        </TableCard>
 
         {/* Pesan dari Dosen PA */}
         <div className="card bg-base-100 p-5">
