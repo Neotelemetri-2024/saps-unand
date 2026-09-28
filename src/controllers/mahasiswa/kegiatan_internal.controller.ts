@@ -141,7 +141,7 @@ export const getDetailKegiatanInternal = async (req: Request, res: Response, nex
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
-    const { id } = req.params;
+    const id = req.params.id as string;
     const kegiatanId = parseInt(id);
     if (isNaN(kegiatanId)) {
       return res.status(400).json({ success: false, message: 'ID kegiatan tidak valid' });
@@ -234,7 +234,7 @@ export const daftarKegiatanInternal = async (req: Request, res: Response, next: 
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
-    const { id } = req.params;
+    const id = req.params.id as string;
     const kegiatanId = parseInt(id);
     if (isNaN(kegiatanId)) {
       return res.status(400).json({ success: false, message: 'ID kegiatan tidak valid' });
@@ -381,7 +381,7 @@ export const batalkanPendaftaran = async (req: Request, res: Response, next: Nex
       return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
-    const { id } = req.params;
+    const id = req.params.id as string;
     const kegiatanId = parseInt(id);
     if (isNaN(kegiatanId)) {
       return res.status(400).json({ success: false, message: 'ID kegiatan tidak valid' });
