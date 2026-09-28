@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Calendar, MapPin, Users, ArrowRight, ChevronLeft, ChevronRight, Info, X, CheckCircle, Clock, XCircle, AlertCircle } from 'lucide-react'
+import { Search, Calendar, MapPin, Users, ArrowRight, ChevronLeft, ChevronRight, Info, X, CheckCircle, Clock, XCircle, AlertCircle, MoreHorizontal } from 'lucide-react'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
 import { getCurrentUser } from '../../services/authService'
 import { get, post, del } from '../../services/apiClient'
@@ -16,19 +16,14 @@ function formatTanggal(value) {
   }
 }
 
-function StatusPendaftaranBadge({ status }) {
-  const map = {
-    belum_daftar: null,
-    menunggu_izin_pa: { label: 'Menunggu Izin PA', color: 'badge-warning' },
-    terdaftar: { label: 'Terdaftar', color: 'badge-success' },
-    disetujui_pa: { label: 'Disetujui PA', color: 'badge-success' },
-    ditolak_pa: { label: 'Ditolak PA', color: 'badge-error' },
-    hadir: { label: 'Hadir', color: 'badge-info' },
-    dibatalkan: { label: 'Dibatalkan', color: 'badge-ghost' },
+function StatusKegiatanBadge({ status }) {
+  if (status === 'Berlangsung') {
+    return <span className="badge badge-sm badge-success">Berlangsung</span>
   }
-  const info = map[status]
-  if (!info) return null
-  return <span className={`badge badge-sm ${info.color}`}>{info.label}</span>
+  if (status === 'Berakhir') {
+    return <span className="badge badge-sm badge-ghost">Berakhir</span>
+  }
+  return <span className="badge badge-sm">{status}</span>
 }
 
 
@@ -167,11 +162,6 @@ export default function KatalogKegiatanInternal() {
                         <td>
                           <div className="max-w-[200px]">
                             <p className="truncate font-medium text-base-content">{kg.nama}</p>
-                            {kg.tanpaPersetujuanPa && (
-                              <span className="mt-0.5 inline-flex items-center gap-0.5 text-[10px] text-success">
-                                <CheckCircle className="h-3 w-3" /> Tanpa Izin PA
-                              </span>
-                            )}
                           </div>
                         </td>
                         <td className="text-base-content/70">{kg.kategori}</td>
@@ -188,27 +178,23 @@ export default function KatalogKegiatanInternal() {
                           )}
                         </td>
                         <td className="text-center">
-                          <StatusPendaftaranBadge status={kg.statusPendaftaran} />
-                          {!kg.sudahDaftar && <span className="text-xs text-base-content/40">—</span>}
+                          <StatusKegiatanBadge status={kg.statusKegiatan} />
                         </td>
-                        <td>
-                          <div className="flex items-center justify-center gap-1">
-                            <button
-                              onClick={() => openDetail(kg.id)}
-                              className="btn btn-ghost btn-xs"
-                              title="Detail"
-                            >
-                              <Info className="h-3.5 w-3.5" />
-                            </button>
-                            {bisaDaftar && (
-                              <button
-                                onClick={() => handleDaftar(kg.id)}
-                                disabled={actionLoading}
-                                className="btn btn-primary btn-xs"
-                              >
-                                Daftar
-                              </button>
-                            )}
+                        <td className="text-center">
+                          <div className="dropdown dropdown-end">
+                            <label tabIndex={0} className="btn btn-ghost btn-xs btn-circle m-1">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </label>
+                            <ul tabIndex={0} className="dropdown-content menu rounded-box z-[1] w-32 bg-base-100 p-2 shadow">
+                              <li>
+                                <button onClick={() => openDetail(kg.id)} className="text-xs">Detail</button>
+                              </li>
+                              {bisaDaftar && kg.statusKegiatan === 'Berlangsung' && (
+                                <li>
+                                  <button onClick={() => handleDaftar(kg.id)} disabled={actionLoading} className="text-xs text-primary">Daftar</button>
+                                </li>
+                              )}
+                            </ul>
                           </div>
                         </td>
                       </tr>

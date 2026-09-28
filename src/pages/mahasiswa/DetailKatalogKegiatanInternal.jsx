@@ -198,7 +198,7 @@ function DetailKatalogKegiatanInternal() {
           <DetailHeader
             title="Detail Kegiatan Internal"
             description="Informasi lengkap kegiatan internal dan syarat pendaftaran Anda."
-            status={statusPendaftaranLabel}
+            status={kegiatan.statusKegiatan}
           />
           <div className="flex gap-2">
             {!kegiatan.sudahDaftar && (kegiatan.sisaKuota === null || kegiatan.sisaKuota > 0) && (
@@ -222,12 +222,7 @@ function DetailKatalogKegiatanInternal() {
           </div>
         </div>
 
-        {kegiatan.izinPA?.alasan && (
-          <DecisionNote
-            status={kegiatan.izinPA.status}
-            alasan={kegiatan.izinPA.alasan}
-          />
-        )}
+
 
         <SectionCard title="Informasi Kegiatan">
           <InfoRow label="Nama Kegiatan" value={kegiatan.nama} />
@@ -245,7 +240,6 @@ function DetailKatalogKegiatanInternal() {
         {kegiatan.sudahDaftar && (
           <SectionCard title="Status Partisipasi Anda">
             <InfoRow label="Status Pendaftaran" value={statusPendaftaranLabel} />
-            <InfoRow label="Status Izin Dosen PA" value={kegiatan.izinPA?.status || (kegiatan.tanpaPersetujuanPa ? 'Tidak Perlu Izin' : 'Belum Diajukan')} />
           </SectionCard>
         )}
 
