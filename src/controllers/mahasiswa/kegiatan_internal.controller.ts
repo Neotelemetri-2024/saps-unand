@@ -168,6 +168,17 @@ export const getDetailKegiatanInternal = async (req: Request, res: Response, nex
             peranVerif: { select: { nama: true } },
           },
         },
+        kegiatanCapaian: {
+          include: {
+            kurikulum: { select: { id: true, nama: true } },
+            capaian: {
+              include: { kurikulum: { select: { id: true, nama: true } } },
+            },
+            subCapaian: {
+              include: { capaian: { include: { kurikulum: { select: { id: true, nama: true } } } } },
+            },
+          },
+        },
       },
     });
 
@@ -207,6 +218,7 @@ export const getDetailKegiatanInternal = async (req: Request, res: Response, nex
           status: partisipasi.izinPA[0].status,
           alasan: partisipasi.izinPA[0].alasan,
         } : null,
+        kegiatanCapaian: kg.kegiatanCapaian || [],
       },
     });
   } catch (error) {
