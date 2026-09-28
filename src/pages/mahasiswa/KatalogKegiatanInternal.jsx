@@ -31,100 +31,6 @@ function StatusPendaftaranBadge({ status }) {
   return <span className={`badge badge-sm ${info.color}`}>{info.label}</span>
 }
 
-function DetailModal({ kegiatan, onClose, onDaftar, onBatalkan, loading }) {
-  if (!kegiatan) return null
-
-  const bisaDaftar = !kegiatan.sudahDaftar && (kegiatan.sisaKuota === null || kegiatan.sisaKuota > 0)
-  const bisaBatalkan = kegiatan.sudahDaftar && ['menunggu_izin_pa', 'terdaftar', 'disetujui_pa'].includes(kegiatan.statusPendaftaran)
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-base-100 p-6 shadow-xl">
-        <button onClick={onClose} className="btn btn-ghost btn-sm btn-circle absolute right-3 top-3">
-          <X className="h-4 w-4" />
-        </button>
-
-        <h2 className="pr-8 text-lg font-bold text-base-content">{kegiatan.nama}</h2>
-
-        <div className="mt-4 space-y-3 text-sm text-base-content/80">
-          <div className="flex items-start gap-2">
-            <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-            <div>
-              <span className="font-medium">Kategori:</span> {kegiatan.kategori} · <span className="font-medium">Skala:</span> {kegiatan.skala}
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <Users className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-            <div>
-              <span className="font-medium">Penyelenggara:</span> {kegiatan.penyelenggara}
-            </div>
-          </div>
-          <div className="flex items-start gap-2">
-            <Calendar className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-            <div>
-              <span className="font-medium">Tanggal:</span> {formatTanggal(kegiatan.tanggalMulai)} — {formatTanggal(kegiatan.tanggalSelesai)}
-            </div>
-          </div>
-          {kegiatan.lokasi && (
-            <div className="flex items-start gap-2">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <div>
-                <span className="font-medium">Lokasi:</span> {kegiatan.lokasi}
-              </div>
-            </div>
-          )}
-          <div className="flex items-start gap-2">
-            <Users className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-            <div>
-              <span className="font-medium">Kuota:</span>{' '}
-              {kegiatan.kuota ? `${kegiatan.jumlahPendaftar}/${kegiatan.kuota} (Sisa: ${kegiatan.sisaKuota})` : 'Tidak dibatasi'}
-            </div>
-          </div>
-          {kegiatan.tanpaPersetujuanPa && (
-            <div className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-xs text-success">
-              <CheckCircle className="mr-1 inline h-3.5 w-3.5" />
-              Kegiatan ini tidak memerlukan persetujuan Dosen PA
-            </div>
-          )}
-          {kegiatan.deskripsi && (
-            <div className="mt-2">
-              <p className="font-medium text-base-content">Deskripsi:</p>
-              <p className="mt-1 whitespace-pre-line text-base-content/70">{kegiatan.deskripsi}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Status Pendaftaran */}
-        {kegiatan.sudahDaftar && (
-          <div className="mt-4 rounded-lg border border-base-300 bg-base-200 px-4 py-3">
-            <p className="text-xs font-medium text-base-content/60">Status Pendaftaran Anda:</p>
-            <div className="mt-1">
-              <StatusPendaftaranBadge status={kegiatan.statusPendaftaran} />
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className="mt-5 flex gap-2">
-          {bisaDaftar && (
-            <button onClick={() => onDaftar(kegiatan.id)} disabled={loading} className="btn btn-primary btn-sm flex-1">
-              {loading ? <span className="loading loading-spinner loading-xs" /> : null}
-              {kegiatan.tanpaPersetujuanPa ? 'Daftar Langsung' : 'Daftar & Minta Izin PA'}
-            </button>
-          )}
-          {bisaBatalkan && (
-            <button onClick={() => onBatalkan(kegiatan.id)} disabled={loading} className="btn btn-error btn-outline btn-sm">
-              {loading ? <span className="loading loading-spinner loading-xs" /> : 'Batalkan'}
-            </button>
-          )}
-          <button onClick={onClose} className="btn btn-ghost btn-sm">
-            Tutup
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 export default function KatalogKegiatanInternal() {
   const navigate = useNavigate()
@@ -136,7 +42,6 @@ export default function KatalogKegiatanInternal() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1 })
-  const [selectedKegiatan, setSelectedKegiatan] = useState(null)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -191,13 +96,8 @@ export default function KatalogKegiatanInternal() {
     }
   }
 
-  const openDetail = async (kegiatanId) => {
-    try {
-      const res = await get(`/api/mahasiswa/kegiatan-internal/katalog/${kegiatanId}`)
-      setSelectedKegiatan(res?.data || null)
-    } catch (err) {
-      toast.error(err.message || 'Gagal memuat detail kegiatan')
-    }
+  const openDetail = (kegiatanId) => {
+    navigate(`/mahasiswa/katalog-kegiatan-internal/${kegiatanId}`)
   }
 
   return (
@@ -349,16 +249,6 @@ export default function KatalogKegiatanInternal() {
         </div>
       </div>
 
-      {/* Modal Detail */}
-      {selectedKegiatan && (
-        <DetailModal
-          kegiatan={selectedKegiatan}
-          onClose={() => setSelectedKegiatan(null)}
-          onDaftar={handleDaftar}
-          onBatalkan={handleBatalkan}
-          loading={actionLoading}
-        />
-      )}
     </DashboardLayout>
   )
 }

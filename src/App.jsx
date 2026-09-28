@@ -19,6 +19,7 @@ import DetailPengajuanMahasiswa from './pages/mahasiswa/DetailPengajuan'
 import DetailIzinPAMahasiswa from './pages/mahasiswa/DetailIzinPA'
 import DetailKegiatanInternalMahasiswa from './pages/mahasiswa/DetailKegiatanInternal'
 import KatalogKegiatanInternal from './pages/mahasiswa/KatalogKegiatanInternal'
+import DetailKatalogKegiatanInternal from './pages/mahasiswa/DetailKatalogKegiatanInternal'
 import Notifikasi from './pages/Notifikasi'
 import DosenPADashboard from './pages/dosen/Dashboard'
 import DosenPAMahasiswaBimbingan from './pages/dosen/MahasiswaBimbingan'
@@ -116,6 +117,7 @@ function App() {
           <Route path="riwayat-kegiatan-internal" element={<RiwayatKegiatanInternal />} />
           <Route path="riwayat-kegiatan-internal/:id" element={<DetailKegiatanInternalMahasiswa />} />
           <Route path="katalog-kegiatan-internal" element={<KatalogKegiatanInternal />} />
+          <Route path="katalog-kegiatan-internal/:id" element={<DetailKatalogKegiatanInternal />} />
           <Route path="pesan-dosen-pa" element={<PesanDosenPA />} />
           <Route path="pengaturan" element={<AkunPengaturan />} />
           <Route path="notifikasi" element={<Notifikasi />} />
