@@ -170,10 +170,6 @@ export const getDetailKegiatanInternal = async (req: Request, res: Response, nex
         },
         kegiatanCapaian: {
           include: {
-            kurikulum: { select: { id: true, nama: true } },
-            capaian: {
-              include: { kurikulum: { select: { id: true, nama: true } } },
-            },
             subCapaian: {
               include: { capaian: { include: { kurikulum: { select: { id: true, nama: true } } } } },
             },
