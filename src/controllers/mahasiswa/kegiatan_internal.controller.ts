@@ -60,15 +60,6 @@ export const getKatalogKegiatanInternal = async (req: Request, res: Response, ne
               },
             },
           },
-          _count: {
-            select: {
-              partisipasi: {
-                where: {
-                  status: { in: ['terdaftar', 'menunggu_izin_pa', 'disetujui_pa', 'hadir', 'selesai'] }
-                }
-              }
-            }
-          }
         },
         orderBy: { tanggalMulai: 'desc' },
         skip,
@@ -77,9 +68,24 @@ export const getKatalogKegiatanInternal = async (req: Request, res: Response, ne
       prisma.kegiatan.count({ where }),
     ]);
 
+    // Hitung jumlah pendaftar per kegiatan secara terpisah (kompatibel semua versi Prisma)
+    const kegiatanIds = kegiatan.map((k: any) => k.id);
+    const pendaftarCounts = await prisma.partisipasi.groupBy({
+      by: ['kegiatanId'],
+      where: {
+        kegiatanId: { in: kegiatanIds },
+        status: { in: ['terdaftar', 'menunggu_izin_pa', 'disetujui_pa', 'hadir'] },
+      },
+      _count: true,
+    });
+    const countMap: Record<number, number> = {};
+    for (const c of pendaftarCounts) {
+      countMap[c.kegiatanId] = c._count;
+    }
+
     const data = kegiatan.map((kg: any) => {
       const partisipasi = kg.partisipasi?.[0] || null;
-      const jumlahPendaftar = kg._count?.partisipasi || 0;
+      const jumlahPendaftar = countMap[kg.id] || 0;
       const sisaKuota = kg.kuota ? Math.max(0, kg.kuota - jumlahPendaftar) : null;
 
       let statusPendaftaran: string = 'belum_daftar';
@@ -161,15 +167,6 @@ export const getDetailKegiatanInternal = async (req: Request, res: Response, nex
             peranVerif: { select: { nama: true } },
           },
         },
-        _count: {
-          select: {
-            partisipasi: {
-              where: {
-                status: { in: ['terdaftar', 'menunggu_izin_pa', 'disetujui_pa', 'hadir', 'selesai'] }
-              }
-            }
-          }
-        }
       },
     });
 
@@ -178,7 +175,12 @@ export const getDetailKegiatanInternal = async (req: Request, res: Response, nex
     }
 
     const partisipasi = (kg as any).partisipasi?.[0] || null;
-    const jumlahPendaftar = (kg as any)._count?.partisipasi || 0;
+    const jumlahPendaftar = await prisma.partisipasi.count({
+      where: {
+        kegiatanId,
+        status: { in: ['terdaftar', 'menunggu_izin_pa', 'disetujui_pa', 'hadir'] },
+      },
+    });
     const sisaKuota = kg.kuota ? Math.max(0, kg.kuota - jumlahPendaftar) : null;
 
     res.json({
