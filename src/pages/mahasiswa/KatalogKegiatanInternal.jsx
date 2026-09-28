@@ -62,7 +62,8 @@ export default function KatalogKegiatanInternal() {
     fetchData()
   }
 
-  const handleDaftar = async (kegiatanId) => {
+  const handleDaftar = async (kegiatanId, namaKegiatan) => {
+    if (!confirm(`Apakah Anda yakin ingin mendaftar pada kegiatan "${namaKegiatan}"?`)) return
     setActionLoading(true)
     try {
       const res = await post(`/api/mahasiswa/kegiatan-internal/katalog/${kegiatanId}/daftar`)
@@ -191,7 +192,7 @@ export default function KatalogKegiatanInternal() {
                               </li>
                               {bisaDaftar && kg.statusKegiatan === 'Berlangsung' && (
                                 <li>
-                                  <button onClick={() => handleDaftar(kg.id)} disabled={actionLoading} className="text-xs text-primary">Daftar</button>
+                                  <button onClick={() => handleDaftar(kg.id, kg.nama)} disabled={actionLoading} className="text-xs text-primary">Daftar</button>
                                 </li>
                               )}
                             </ul>

@@ -127,6 +127,7 @@ function DetailKatalogKegiatanInternal() {
 
   const handleDaftar = async () => {
     if (!kegiatan) return
+    if (!confirm(`Apakah Anda yakin ingin mendaftar pada kegiatan "${kegiatan.nama}"?`)) return
     setActionLoading(true)
     try {
       const res = await post(`/api/mahasiswa/kegiatan-internal/katalog/${kegiatan.id}/daftar`)
