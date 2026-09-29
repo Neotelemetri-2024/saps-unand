@@ -41,9 +41,10 @@ export function ChartSkeleton({ height = 280, variant = 'bar' }) {
   }
 
   if (variant === 'radar') {
+    const diameter = Math.round(height * 0.8)
     return (
       <div className="flex items-center justify-center py-4" style={{ minHeight: height }} aria-hidden>
-        <Skeleton className="h-40 w-40 rounded-full" />
+        <Skeleton className="rounded-full" style={{ height: diameter, width: diameter }} />
       </div>
     )
   }

@@ -34,7 +34,7 @@ function formatLabel(label) {
   return String(label ?? '').replace(/\n/g, ' ')
 }
 
-function wrapRadarLabel(label, maxChars = 16) {
+function wrapRadarLabel(label, maxChars = 18) {
   const words = String(label || '').replace(/\s+/g, ' ').trim().split(' ')
   const lines = []
   let current = ''
@@ -43,15 +43,11 @@ function wrapRadarLabel(label, maxChars = 16) {
     if (next.length > maxChars && current) {
       lines.push(current)
       current = word
-      if (lines.length === 2) {
-        current = ''
-        break
-      }
     } else {
       current = next
     }
   }
-  if (current && lines.length < 2) lines.push(current)
+  if (current) lines.push(current)
   return lines.join('\n') || '-'
 }
 
@@ -311,7 +307,7 @@ export function RadarChartCJ({
     (height <= 220
       ? Math.max(46, Math.round(height * 0.25))
       : Math.max(64, Math.round(height * 0.32)))
-  const labelFontSize = height <= 220 ? '10px' : '11px'
+  const labelFontSize = height <= 220 ? '11px' : '12px'
 
   const options = {
     chart: baseChart(skin, {

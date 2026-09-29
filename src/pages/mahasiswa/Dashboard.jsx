@@ -205,7 +205,7 @@ function MahasiswaDashboard() {
   return (
     <DashboardLayout role="mahasiswa" userName={user?.nama || 'Mahasiswa'} userRole="Mahasiswa">
       <div className="space-y-5">
-        <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(380px,420px)]">
           <div className="card min-w-0 bg-base-100 p-4 sm:p-6">
             <h2 className="text-xl font-extrabold text-base-content sm:text-2xl lg:text-3xl">
               Selamat Datang,<br />{user?.nama || 'Mahasiswa'}!
@@ -244,13 +244,13 @@ function MahasiswaDashboard() {
             </div>
           </div>
 
-          <div className="min-w-0 overflow-hidden rounded-xl bg-gradient-to-b from-brand-dark to-brand-light px-3 py-5 text-center shadow-sm sm:px-4 sm:py-6">
+          <div className="min-w-0 overflow-visible rounded-xl bg-gradient-to-b from-brand-dark to-brand-light px-3 py-5 text-center shadow-sm sm:px-4 sm:py-6">
             <h3 className="text-sm font-bold text-white">Radar Karakter Andalasian</h3>
-            <div className="mx-auto mt-2 w-full max-w-[290px]">
+            <div className="mx-auto mt-2 w-full max-w-[420px]">
               {loadingDash ? (
-                <ChartSkeleton variant="radar" height={200} />
+                <ChartSkeleton variant="radar" height={280} />
               ) : (
-                <RadarChartCJ labels={radarLabels} values={radarValues} darkBg height={200} />
+                <RadarChartCJ labels={radarLabels} values={radarValues} darkBg height={280} />
               )}
             </div>
           </div>
