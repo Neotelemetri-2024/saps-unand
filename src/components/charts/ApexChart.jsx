@@ -16,6 +16,7 @@ export default function ApexChart({
   const labelKey = JSON.stringify(options.labels || options.xaxis?.categories || [])
   const colorKey = JSON.stringify(options.colors || [])
   const themeKey = options.tooltip?.theme || options.chart?.background || ''
+  const radarSize = options.plotOptions?.radar?.size
 
   useEffect(() => {
     const el = elRef.current
@@ -38,7 +39,7 @@ export default function ApexChart({
     }
     // Snapshot keys keep the instance in sync without depending on a new options object each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional serialized snapshots
-  }, [type, height, width, seriesKey, labelKey, colorKey, themeKey])
+  }, [type, height, width, seriesKey, labelKey, colorKey, themeKey, radarSize])
 
   return <div ref={elRef} />
 }

@@ -2,6 +2,7 @@
  * Shared ApexCharts wrappers. Props stay the same so dashboard pages
  * can swap implementations without changing their data layer.
  */
+import { useEffect, useRef, useState } from 'react'
 import ApexChart from './ApexChart'
 import { useAppearance } from '../../lib/appearance'
 import { isDarkTheme } from '../../constants/theme'
@@ -35,7 +36,7 @@ function formatLabel(label) {
 }
 
 function wrapRadarLabel(label, maxChars = 18) {
-  const words = String(label || '').replace(/\s+/g, ' ').trim().split(' ')
+  const words = String(label || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean)
   const lines = []
   let current = ''
   for (const word of words) {
@@ -48,7 +49,25 @@ function wrapRadarLabel(label, maxChars = 18) {
     }
   }
   if (current) lines.push(current)
-  return lines.join('\n') || '-'
+  return lines.length ? lines : ['-']
+}
+
+function radarLabelLines(label, index, total) {
+  const count = Math.max(total, 1)
+  const cos = Math.cos(-Math.PI / 2 + (2 * Math.PI * index) / count)
+  const side = Math.abs(cos) > 0.45
+  const lines = wrapRadarLabel(label, side ? 14 : 32)
+  return lines.length > 1 ? lines : lines[0]
+}
+
+function measureRadarLine(text, fontSizePx) {
+  const value = String(text || '')
+  if (typeof document === 'undefined') return value.length * fontSizePx * 0.62
+  const canvas = measureRadarLine.canvas || (measureRadarLine.canvas = document.createElement('canvas'))
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return value.length * fontSizePx * 0.62
+  ctx.font = `600 ${fontSizePx}px "DM Sans", system-ui, sans-serif`
+  return ctx.measureText(value).width
 }
 
 export function StackedBarChart({ labels = [], datasets = [], height = 300, horizontal = false }) {
@@ -294,6 +313,20 @@ export function RadarChartCJ({
   size,
 }) {
   const skin = useChartSkin()
+  const wrapRef = useRef(null)
+  const [boxWidth, setBoxWidth] = useState(0)
+
+  useEffect(() => {
+    const el = wrapRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return undefined
+    const ro = new ResizeObserver((entries) => {
+      const next = Math.round(entries[0]?.contentRect?.width || 0)
+      setBoxWidth((prev) => (prev === next ? prev : next))
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const rawMax = values.length ? Math.max(...values) : 0
   const needsScale = rawMax > 100
   const scaleMax = needsScale ? Math.ceil((rawMax + 4) / 25) * 25 : 100
@@ -301,13 +334,21 @@ export function RadarChartCJ({
   const line = darkBg ? 'rgba(255,255,255,0.9)' : color
   const fill = darkBg ? 'rgba(255,255,255,0.22)' : color
   const labelColor = darkBg ? 'rgba(255,255,255,0.85)' : skin.foreColor
-  const categories = labels.map((label) => wrapRadarLabel(label))
-  const radarSize =
-    size ??
-    (height <= 220
-      ? Math.max(46, Math.round(height * 0.25))
-      : Math.max(64, Math.round(height * 0.32)))
-  const labelFontSize = height <= 220 ? '11px' : '12px'
+  const categories = labels.map((label, index) => radarLabelLines(label, index, labels.length))
+  const fontSizePx = height <= 220 ? 11 : 12
+  const labelFontSize = `${fontSizePx}px`
+  const sideLabelWidth = categories.reduce((max, category, index) => {
+    const cos = Math.cos(-Math.PI / 2 + (2 * Math.PI * index) / Math.max(categories.length, 1))
+    if (Math.abs(cos) <= 0.45) return max
+    const lines = Array.isArray(category) ? category : [category]
+    const widest = lines.reduce((lineMax, text) => Math.max(lineMax, measureRadarLine(text, fontSizePx)), 0)
+    return Math.max(max, widest)
+  }, 0)
+  // 10px is the ApexCharts anchor gap; the rest keeps glyphs inside the card.
+  const sideReserve = Math.ceil(sideLabelWidth + 28)
+  const heightCap = Math.max(44, Math.floor(height / 2 - 28))
+  const widthCap = boxWidth > 0 ? Math.floor(boxWidth / 2 - sideReserve) : heightCap
+  const radarSize = size ?? Math.max(44, Math.min(heightCap, widthCap))
 
   const options = {
     chart: baseChart(skin, {
@@ -325,9 +366,14 @@ export function RadarChartCJ({
       strokeColors: line,
       strokeWidth: 1,
     },
+    grid: {
+      padding: { top: 0, right: 0, bottom: 0, left: 0 },
+    },
     xaxis: {
       categories,
       labels: {
+        trim: true,
+        formatter: (val) => (Array.isArray(val) ? val : String(val ?? '')),
         style: {
           colors: categories.map(() => labelColor),
           fontSize: labelFontSize,
@@ -354,6 +400,9 @@ export function RadarChartCJ({
     legend: { show: false },
     tooltip: {
       theme: darkBg ? 'dark' : skin.tooltipTheme,
+      x: {
+        formatter: (val) => (Array.isArray(val) ? val.join(' ') : String(val ?? '')),
+      },
       y: {
         formatter: (_val, opts) => String(values[opts.dataPointIndex] ?? _val),
       },
@@ -361,17 +410,16 @@ export function RadarChartCJ({
   }
 
   return (
-    <div
-      className="overflow-visible [&_.apexcharts-canvas]:!overflow-visible [&_.apexcharts-svg]:!overflow-visible"
-      style={{ height: height + 24, position: 'relative', width: '100%', minWidth: 0 }}
-    >
-      <ApexChart
-        options={options}
-        series={[{ name: 'Poin', data: displayValues }]}
-        type="radar"
-        height={height}
-        width="100%"
-      />
+    <div ref={wrapRef} className="relative w-full min-w-0 overflow-hidden" style={{ height }}>
+      {boxWidth > 0 ? (
+        <ApexChart
+          options={options}
+          series={[{ name: 'Poin', data: displayValues }]}
+          type="radar"
+          height={height}
+          width="100%"
+        />
+      ) : null}
     </div>
   )
 }

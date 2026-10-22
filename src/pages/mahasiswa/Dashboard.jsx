@@ -244,7 +244,7 @@ function MahasiswaDashboard() {
             </div>
           </div>
 
-          <div className="min-w-0 overflow-visible rounded-xl bg-gradient-to-b from-brand-dark to-brand-light px-3 py-5 text-center shadow-sm sm:px-4 sm:py-6">
+          <div className="min-w-0 overflow-hidden rounded-xl bg-gradient-to-b from-brand-dark to-brand-light px-3 py-5 text-center shadow-sm sm:px-4 sm:py-6">
             <h3 className="text-sm font-bold text-white">Radar Karakter Andalasian</h3>
             <div className="mx-auto mt-2 w-full max-w-[420px]">
               {loadingDash ? (
