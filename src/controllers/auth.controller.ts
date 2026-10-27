@@ -273,7 +273,20 @@ export const getMe = async (req: Request, res: Response): Promise<void> => {
       }
     }
 
-    res.json({ success: true, data: userResponse });
+    const isSso = Boolean(
+      (req.user as any).authProvider === 'sso' ||
+      (req.user as any).isSso ||
+      user.email.toLowerCase().endsWith('@student.unand.ac.id')
+    );
+
+    res.json({
+      success: true,
+      data: {
+        ...userResponse,
+        authProvider: isSso ? 'sso' : 'internal',
+        isSso,
+      },
+    });
   } catch (error) {
     console.error(error);
     res
@@ -483,6 +496,20 @@ export const gantiPassword = async (
 
     if (!user) {
       res.status(404).json({ success: false, message: "User tidak ditemukan" });
+      return;
+    }
+
+    // Blokir penggantian password untuk akun SSO agar tidak konflik dengan Keycloak SSO UNAND
+    const isSsoUser = Boolean(
+      (req.user as any).authProvider === 'sso' ||
+      (req.user as any).isSso ||
+      user.email.toLowerCase().endsWith('@student.unand.ac.id')
+    );
+    if (isSsoUser) {
+      res.status(403).json({
+        success: false,
+        message: "Akun ini terkelola melalui SSO UNAND. Penggantian password hanya dapat dilakukan melalui portal resmi SSO UNAND.",
+      });
       return;
     }
 
@@ -769,6 +796,8 @@ export const ssoMockLogin = async (req: Request, res: Response): Promise<void> =
       nama: user.nama,
       email: user.email,
       nim: user.peran === 'mahasiswa' ? username : undefined,
+      authProvider: 'sso',
+      isSso: true,
     };
 
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '24h' });
@@ -1074,6 +1103,8 @@ export const ssoCallback = async (req: Request, res: Response): Promise<void> =>
       jabatan: staffJabatan,
       organisasiId,
       namaOrganisasi,
+      authProvider: 'sso',
+      isSso: true,
     };
 
     const appToken = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '24h' });
