@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import prisma from "../lib/prisma";
 import { JWT_SECRET } from "../middlewares/auth.middleware";
 import { resolveKurikulumMahasiswa, resolveKurikulumIdForAngkatan } from "../services/kurikulumResolver.service";
+import { resolveProdiForMahasiswa, correctMahasiswaProdiIfMismatched } from "../services/prodiResolver.service";
 import { z } from "zod";
 
 // ==================== VALIDASI ====================
@@ -722,8 +723,8 @@ export const ssoMockLogin = async (req: Request, res: Response): Promise<void> =
         where: { userId: user.id },
       });
 
+      let nim = username;
       if (!existingMhs) {
-        let nim = username;
         let angkatan = new Date().getFullYear();
         if (/^\d{2}/.test(nim)) {
           const prefixYear = parseInt(nim.substring(0, 2), 10);
@@ -731,19 +732,20 @@ export const ssoMockLogin = async (req: Request, res: Response): Promise<void> =
             angkatan = 2000 + prefixYear;
           }
         }
-        const defaultProdi = await prisma.programStudi.findFirst();
-        const prodiId = defaultProdi?.id || 1;
+        const resolved = await resolveProdiForMahasiswa(nim);
         const kurikulumId = await resolveKurikulumIdForAngkatan(angkatan);
 
         await prisma.mahasiswa.create({
           data: {
             userId: user.id,
-            nim,
+            nim: nim || `NIM-${user.id}`,
             angkatan,
-            prodiId,
+            prodiId: resolved.prodiId,
             kurikulumId,
           },
         });
+      } else if (nim) {
+        await correctMahasiswaProdiIfMismatched(user.id, nim);
       }
     } else if (user.peran === 'dosen') {
       const existingDosen = await prisma.dosen.findUnique({
@@ -1016,6 +1018,9 @@ export const ssoCallback = async (req: Request, res: Response): Promise<void> =>
         }
         nim = nim || `NIM${user.id.toString().padStart(8, '0')}`;
 
+        // Resolusikan program studi dan fakultas yang benar dari NIM UNAND
+        const resolved = await resolveProdiForMahasiswa(nim);
+
         const existingMhsByUserId = await prisma.mahasiswa.findUnique({ where: { userId: user.id } });
         
         if (!existingMhsByUserId) {
@@ -1023,21 +1028,20 @@ export const ssoCallback = async (req: Request, res: Response): Promise<void> =>
           const existingMhsByNim = await prisma.mahasiswa.findUnique({ where: { nim } });
           
           if (existingMhsByNim) {
-            // Jika NIM sudah ada, cukup update userId-nya agar nyambung dengan akun SSO ini
+            // Jika NIM sudah ada, hubungkan userId-nya dan koreksi prodinya jika sebelumnya tidak cocok
             await prisma.mahasiswa.update({
               where: { nim },
               data: { userId: user.id }
             });
+            await correctMahasiswaProdiIfMismatched(user.id, nim);
           } else {
-            // Jika belum ada sama sekali, buat baru
+            // Jika belum ada sama sekali, buat baru dengan prodi yang benar sesuai fakultas aslinya
             let angkatan = new Date().getFullYear();
             if (/^\d{2}/.test(nim)) {
               const prefixYear = parseInt(nim.substring(0, 2), 10);
               if (prefixYear >= 15 && prefixYear <= 40) angkatan = 2000 + prefixYear;
             }
 
-            const defaultProdi = await prisma.programStudi.findFirst();
-            const prodiId = defaultProdi?.id || 1;
             const kurikulumId = await resolveKurikulumIdForAngkatan(angkatan);
 
             await prisma.mahasiswa.create({
@@ -1045,11 +1049,14 @@ export const ssoCallback = async (req: Request, res: Response): Promise<void> =>
                 userId: user.id,
                 nim,
                 angkatan,
-                prodiId,
+                prodiId: resolved.prodiId,
                 kurikulumId,
               },
             });
           }
+        } else {
+          // KOREKSI OTOMATIS: Jika mahasiswa sudah terdaftar di database tetapi terlanjur masuk fakultas yang salah
+          await correctMahasiswaProdiIfMismatched(user.id, nim);
         }
       }
     } catch (syncErr) {
