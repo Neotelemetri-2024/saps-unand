@@ -24,6 +24,7 @@
     "clean:sia": "node dist/scripts/cleanSiaData.js",
     "clean:pascasarjana": "node dist/scripts/cleanPascasarjana.js",
     "fix:kurikulum": "node dist/scripts/fixKurikulumMahasiswa.js",
+    "fix:prodi": "node dist/scripts/fixMahasiswaProdi.js",
     "check:sia": "node dist/scripts/checkSiaAngkatan.js"
   },
   "prisma": {
