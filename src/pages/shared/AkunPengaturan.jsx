@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { Lock, User, Eye, EyeOff } from 'lucide-react'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
 import { FormSkeleton } from '../../components/dashboard/Skeleton'
-import { getCurrentUser, updateProfil, gantiPassword } from '../../services/authService'
+import { getCurrentUser, updateProfil, gantiPassword, isSsoUser } from '../../services/authService'
 import { get } from '../../services/apiClient'
 
 const ROLE_LABELS = {
@@ -27,6 +27,7 @@ function labelJabatanStaff(jabatan) {
 
 function AkunPengaturan({ role: roleProp } = {}) {
   const storedUser = getCurrentUser()
+  const isSso = isSsoUser(storedUser)
   const role = roleProp || storedUser?.role || 'admin_ditmawa'
   const roleLabel = ROLE_LABELS[role] || storedUser?.userRole || role
 
@@ -251,87 +252,89 @@ function AkunPengaturan({ role: roleProp } = {}) {
             )}
           </div>
 
-          <div className="card bg-base-100 p-6">
-            <div className="mb-5 flex items-center gap-3">
-              <Lock className="h-5 w-5 text-base-content" />
-              <h3 className="text-sm font-semibold text-base-content">Ganti password</h3>
+          {!isSso && (
+            <div className="card bg-base-100 p-6">
+              <div className="mb-5 flex items-center gap-3">
+                <Lock className="h-5 w-5 text-base-content" />
+                <h3 className="text-sm font-semibold text-base-content">Ganti password</h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-base-content">
+                    Password Lama <span className="text-error">*</span>
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      type={showOld ? 'text' : 'password'}
+                      name="passwordLama"
+                      value={pwdForm.passwordLama}
+                      onChange={handlePwdChange}
+                      className="input w-full pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowOld(!showOld)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50"
+                    >
+                      {showOld ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-base-content">
+                    Password Baru <span className="text-error">*</span>
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      type={showNew ? 'text' : 'password'}
+                      name="passwordBaru"
+                      value={pwdForm.passwordBaru}
+                      onChange={handlePwdChange}
+                      className="input w-full pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNew(!showNew)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50"
+                    >
+                      {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-base-content">
+                    Konfirmasi Password Baru <span className="text-error">*</span>
+                  </label>
+                  <div className="relative mt-1">
+                    <input
+                      type={showConfirm ? 'text' : 'password'}
+                      name="konfirmasiPassword"
+                      value={pwdForm.konfirmasiPassword}
+                      onChange={handlePwdChange}
+                      className="input w-full pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm(!showConfirm)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50"
+                    >
+                      {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleGantiPassword}
+                    disabled={changingPwd}
+                    className="btn btn-primary btn-sm"
+                  >
+                    {changingPwd ? 'Mengganti…' : 'Ganti Password'}
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-base-content">
-                  Password Lama <span className="text-error">*</span>
-                </label>
-                <div className="relative mt-1">
-                  <input
-                    type={showOld ? 'text' : 'password'}
-                    name="passwordLama"
-                    value={pwdForm.passwordLama}
-                    onChange={handlePwdChange}
-                    className="input w-full pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowOld(!showOld)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50"
-                  >
-                    {showOld ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-base-content">
-                  Password Baru <span className="text-error">*</span>
-                </label>
-                <div className="relative mt-1">
-                  <input
-                    type={showNew ? 'text' : 'password'}
-                    name="passwordBaru"
-                    value={pwdForm.passwordBaru}
-                    onChange={handlePwdChange}
-                    className="input w-full pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNew(!showNew)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50"
-                  >
-                    {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-base-content">
-                  Konfirmasi Password Baru <span className="text-error">*</span>
-                </label>
-                <div className="relative mt-1">
-                  <input
-                    type={showConfirm ? 'text' : 'password'}
-                    name="konfirmasiPassword"
-                    value={pwdForm.konfirmasiPassword}
-                    onChange={handlePwdChange}
-                    className="input w-full pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirm(!showConfirm)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50"
-                  >
-                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleGantiPassword}
-                  disabled={changingPwd}
-                  className="btn btn-primary btn-sm"
-                >
-                  {changingPwd ? 'Mengganti…' : 'Ganti Password'}
-                </button>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
         <p className="text-sm text-base-content/60">

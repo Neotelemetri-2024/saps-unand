@@ -209,6 +209,8 @@ export async function handleSsoLogin(token) {
         kurikulumNama: meData.mahasiswa?.kurikulum?.nama ?? null,
         role: finalRole,
         userRole: meData.staff?.jabatan || meData.peran || finalRole,
+        authProvider: 'sso',
+        isSso: true,
       }
       localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(updatedUser))
       window.dispatchEvent(new Event('saps-user-updated'))
@@ -316,3 +318,18 @@ export async function gantiPassword(payload) {
   const res = await put('/api/auth/ganti-password', payload)
   return res?.data || res
 }
+
+/**
+ * Mengecek apakah akun yang sedang login adalah akun SSO (Keycloak UNAND).
+ */
+export function isSsoUser(user = getCurrentUser()) {
+  if (!user) return false
+  if (user.authProvider === 'sso' || user.isSso) return true
+  if (user.email && user.email.toLowerCase().endsWith('@student.unand.ac.id')) return true
+  if (user.token) {
+    const payload = decodeJwtPayload(user.token)
+    if (payload.authProvider === 'sso' || payload.isSso) return true
+  }
+  return false
+}
+

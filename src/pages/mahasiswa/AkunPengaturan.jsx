@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Lock, User, Eye, EyeOff } from 'lucide-react'
 import { toast } from 'sonner'
 import DashboardLayout from '../../components/dashboard/DashboardLayout'
-import { getCurrentUser, updateProfil, gantiPassword } from '../../services/authService'
+import { getCurrentUser, updateProfil, gantiPassword, isSsoUser } from '../../services/authService'
 import { get } from '../../services/apiClient'
 import { getFakultas, getProdi } from '../../services/matriksService'
 import { getLinkedInStatus, disconnectLinkedIn, getLinkedInConnectUrl } from '../../services/cvService'
@@ -30,6 +30,7 @@ function formatExpiresAt(iso) {
 
 function AkunPengaturan() {
   const user = getCurrentUser()
+  const isSso = isSsoUser(user)
   const [displayName, setDisplayName] = useState(user?.nama || 'Mahasiswa')
   const [fakultasList, setFakultasList] = useState([])
   const [prodiList, setProdiList] = useState([])
@@ -296,73 +297,75 @@ function AkunPengaturan() {
             )}
           </div>
 
-          {/* Ganti Password */}
-          <div className="card bg-base-100 p-6">
-            <div className="mb-5 flex items-center gap-3">
-              <Lock className="h-5 w-5 text-base-content" />
-              <h3 className="text-sm font-semibold text-base-content">Ganti password</h3>
+          {/* Ganti Password (hanya untuk akun non-SSO / internal) */}
+          {!isSso && (
+            <div className="card bg-base-100 p-6">
+              <div className="mb-5 flex items-center gap-3">
+                <Lock className="h-5 w-5 text-base-content" />
+                <h3 className="text-sm font-semibold text-base-content">Ganti password</h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-base-content">Password Lama <span className="text-red-500">*</span></label>
+                  <div className="relative mt-1">
+                    <input
+                      type={showOld ? 'text' : 'password'}
+                      name="passwordLama"
+                      value={pwdForm.passwordLama}
+                      onChange={handlePwdChange}
+                      className="input w-full pr-10"
+                    />
+                    <button type="button" onClick={() => setShowOld(!showOld)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50">
+                      {showOld ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-base-content">Password Baru <span className="text-red-500">*</span></label>
+                  <div className="relative mt-1">
+                    <input
+                      type={showNew ? 'text' : 'password'}
+                      name="passwordBaru"
+                      value={pwdForm.passwordBaru}
+                      onChange={handlePwdChange}
+                      className="input w-full pr-10"
+                    />
+                    <button type="button" onClick={() => setShowNew(!showNew)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50">
+                      {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-base-content">Konfirmasi Password Baru <span className="text-red-500">*</span></label>
+                  <div className="relative mt-1">
+                    <input
+                      type={showConfirm ? 'text' : 'password'}
+                      name="konfirmasiPassword"
+                      value={pwdForm.konfirmasiPassword}
+                      onChange={handlePwdChange}
+                      className="input w-full pr-10"
+                    />
+                    <button type="button" onClick={() => setShowConfirm(!showConfirm)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50">
+                      {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleGantiPassword}
+                    disabled={changingPwd}
+                    className="btn btn-primary btn-sm"
+                  >
+                    {changingPwd ? 'Mengganti…' : 'Ganti Password'}
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-base-content">Password Lama <span className="text-red-500">*</span></label>
-                <div className="relative mt-1">
-                  <input
-                    type={showOld ? 'text' : 'password'}
-                    name="passwordLama"
-                    value={pwdForm.passwordLama}
-                    onChange={handlePwdChange}
-                    className="input w-full pr-10"
-                  />
-                  <button type="button" onClick={() => setShowOld(!showOld)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50">
-                    {showOld ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-base-content">Password Baru <span className="text-red-500">*</span></label>
-                <div className="relative mt-1">
-                  <input
-                    type={showNew ? 'text' : 'password'}
-                    name="passwordBaru"
-                    value={pwdForm.passwordBaru}
-                    onChange={handlePwdChange}
-                    className="input w-full pr-10"
-                  />
-                  <button type="button" onClick={() => setShowNew(!showNew)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50">
-                    {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-base-content">Konfirmasi Password Baru <span className="text-red-500">*</span></label>
-                <div className="relative mt-1">
-                  <input
-                    type={showConfirm ? 'text' : 'password'}
-                    name="konfirmasiPassword"
-                    value={pwdForm.konfirmasiPassword}
-                    onChange={handlePwdChange}
-                    className="input w-full pr-10"
-                  />
-                  <button type="button" onClick={() => setShowConfirm(!showConfirm)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/50">
-                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={handleGantiPassword}
-                  disabled={changingPwd}
-                  className="btn btn-primary btn-sm"
-                >
-                  {changingPwd ? 'Mengganti…' : 'Ganti Password'}
-                </button>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Koneksi LinkedIn */}
