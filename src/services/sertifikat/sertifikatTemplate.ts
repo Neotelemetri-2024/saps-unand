@@ -98,7 +98,7 @@ export function renderCertificateHtml(data: MahasiswaSertifikatData, pages: Achi
             <img class="header-logo" src="${assets.logo}" alt="Logo Universitas Andalas">
             <div class="university">
               <h1>UNIVERSITAS ANDALAS</h1>
-              <p>Keputusan Rektor N0(232263/UN/16.3/KM/SAPS/2026)</p>
+              <p>Keputusan Rektor NO(232263/UN/16.3/KM/SAPS/2026)</p>
             </div>
             <span aria-hidden="true"></span>
           </header>
